@@ -5,6 +5,8 @@
 #ifndef DMR_DMR_H
 #define DMR_DMR_H
 
+#include "RMA.h"
+
 #include <utility>
 
 class DMR {
