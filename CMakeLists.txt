@@ -3,4 +3,4 @@ project(dmr)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(dmr main.cpp dmr.h)
+add_executable(dmr main.cpp)
