@@ -8,82 +8,63 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <cassert>
 
 //#include "RMA.h"
 
-template<class TIdx>
+template<class TKey>
 class DMR {
+public:
     using TOff = size_t;
-private:
-    size_t num_mappers_;
-    size_t num_reducers_;
 
-    std::vector<std::pair<const TIdx *, size_t>> mapper_keys_;
-    std::vector<std::vector<std::pair<size_t, size_t>>> shuffle_indices_;
-
-    struct Reducer {
-        std::vector<TIdx> keys;
+    struct ReducerIdx_s {
+        std::vector<TKey> keys;
         std::vector<TOff> offs;
 
-        const std::vector<TIdx> &Keys() const { return keys; }
+        const std::vector<TKey> &Keys() const { return keys; }
 
         const std::vector<TOff> &Offs() const { return offs; }
     };
 
-    std::vector<Reducer> reducers_;
+    using ReducerIdx = ReducerIdx_s;
+
+private:
+
+    const TKey *keys_;
+    size_t count_;
+    std::vector<TOff> gather_indices_;
+
+    ReducerIdx reducer_idx_;
 
 public:
-    DMR(size_t num_mappers, size_t num_reducers) :
-            num_mappers_(num_mappers),
-            num_reducers_(num_reducers),
-            mapper_keys_(num_mappers),
-            reducers_(num_reducers),
-            shuffle_indices_(num_mappers) {
-
+    DMR() {
     }
 
-    void SetMapperKeys(size_t mapper_id, const TIdx *keys, size_t count) {
-        mapper_keys_[mapper_id] = {keys, count};
-        shuffle_indices_[mapper_id].resize(count);
-    }
+    void SetMapperKeys(const TKey *keys, size_t count) {
+//        assert(keys != nullptr);
+        keys_ = keys;
+        count_ = count;
 
-    void Prepare() {
-        auto num_reducers = num_reducers_;
-        auto idx_to_reducer = [num_reducers](TIdx idx) { return idx % num_reducers; };
-        std::vector<std::vector<std::pair<TIdx, std::pair<size_t, size_t>>>> metas(num_reducers_);
+        std::vector<std::pair<TKey, TOff>> metas(count_);
+        for (size_t i = 0; i < count_; i++) {
+            metas[i] = {keys[i], i};
+        }
+        std::sort(metas.begin(), metas.end());
 
-        for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
-            auto &keys = mapper_keys_[mapper_id];
-            for (size_t i = 0; i < keys.second; i++) {
-                TIdx idx = keys.first[i];
-                size_t reducer_id = idx_to_reducer(idx);
-                metas[reducer_id].push_back({idx, {mapper_id, i}});
-//                fprintf(stderr, "k=%d mapped to reducer %d\n", idx, reducer_id);
+        gather_indices_.resize(count_);
+
+        for (size_t i = 0; i < metas.size(); i++) {
+            TKey k = metas[i].first;
+            gather_indices_[i] = metas[i].second;
+
+            if (i == 0 || metas[i].first != metas[i - 1].first) {
+                reducer_idx_.keys.push_back(k);
+                reducer_idx_.offs.push_back(i);
             }
         }
-        for (size_t reducer_id = 0; reducer_id < num_reducers; reducer_id++) {
-            std::sort(metas[reducer_id].begin(), metas[reducer_id].end());
-        }
-
-        reducers_.resize(num_reducers);
-        for (size_t reducer_id = 0; reducer_id < num_reducers; reducer_id++) {
-            auto &reducer = reducers_[reducer_id];
-            TIdx last_key = -1;
-            for (size_t i = 0; i < metas[reducer_id].size(); i++) {
-                TIdx k = metas[reducer_id][i].first;
-                auto mapper_pos = metas[reducer_id][i].second;
-                shuffle_indices_[mapper_pos.first][mapper_pos.second] = {reducer_id, i};
-
-                if (i == 0 || k != last_key) {
-                    reducer.keys.push_back(k);
-                    reducer.offs.push_back(i);
-                    last_key = k;
-                }
-            }
-            reducer.offs.push_back(metas[reducer_id].size());
-//            fprintf(stderr, "reducer %d : keys = %d offs = %d size = %d\n", reducer_id, reducer.keys.size(),
-//                    reducer.offs.size(), metas[reducer_id].size());
-        }
+        reducer_idx_.offs.push_back(count_);
+        reducer_idx_.keys.shrink_to_fit();
+        reducer_idx_.offs.shrink_to_fit();
     }
 
     template<class TValue>
@@ -91,20 +72,20 @@ public:
 
     private:
         const DMR *dmr_;
-        std::vector<std::pair<const TIdx *, size_t>> mapper_values_;
+        const TKey *mapper_values_ = nullptr;
 
         struct Reducer {
-            const std::vector<TIdx> &keys;
+            const std::vector<TKey> &keys;
             const std::vector<TOff> &offs;
             std::vector<TValue> values;
 
-            Reducer(const DMR::Reducer &reducer) :
+            Reducer(const DMR::ReducerIdx &reducer) :
                     keys(reducer.Keys()),
                     offs(reducer.Offs()),
                     values(reducer.Offs().back()) {
             }
 
-            const std::vector<TIdx> &Keys() const { return keys; }
+            const std::vector<TKey> &Keys() const { return keys; }
 
             const std::vector<TOff> &Offs() const { return offs; }
 
@@ -112,45 +93,44 @@ public:
 
         };
 
-        std::vector<Reducer> reducers_;
+        Reducer reducer_;
 
     public:
 
         Shuffler(const DMR *dmr) :
                 dmr_(dmr),
-                mapper_values_(dmr->num_mappers_) {
-            for (const DMR::Reducer &r : dmr_->reducers_) {
-                reducers_.emplace_back(r);
-            }
+                reducer_(dmr->GetReducerIdx()) {
         }
 
-        void SetMapperValues(size_t mapper_id, const TValue *values, size_t count) {
-            if (count != dmr_->mapper_keys_[mapper_id].second) {
+        void SetMapperValues(const TValue *values, size_t count) {
+//            assert(count > 0 && values != nullptr);
+            if (count != reducer_.values.size()) {
                 throw std::runtime_error("SetMapperValues error, count mismatch");
             }
-            mapper_values_[mapper_id] = {values, count};
+            mapper_values_ = values;
         }
 
         void Run() {
-            for (size_t mapper_id = 0; mapper_id < dmr_->num_mappers_; mapper_id++) {
-                const TValue *values = mapper_values_[mapper_id].first;
-                size_t count = mapper_values_[mapper_id].second;
-                for (size_t i = 0; i < count; i++) {
-                    size_t reducer_id = dmr_->shuffle_indices_[mapper_id][i].first;
-                    size_t reducer_off = dmr_->shuffle_indices_[mapper_id][i].second;
-                    reducers_[reducer_id].Values()[reducer_off] = values[i];
-                }
+            const TOff *idx = dmr_->gather_indices_.data();
+            const TValue *src = mapper_values_;
+            TValue *dst = reducer_.values.data();
+            for (size_t i = 0; i < dmr_->count_; i++) {
+                dst[i] = src[idx[i]];
             }
         }
 
-        std::vector<Reducer> &Reducers() {
-            return reducers_;
+        Reducer &GetReducer() {
+            return reducer_;
         }
 
     };
 
+    const ReducerIdx &GetReducerIdx() const {
+        return reducer_idx_;
+    }
+
     template<class TValue>
-    Shuffler<TValue> GetShuffler() {
+    Shuffler<TValue> GetShuffler() const {
         return Shuffler<TValue>(this);
     }
 
