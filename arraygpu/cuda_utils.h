@@ -1,0 +1,29 @@
+#pragma once
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <cstring>
+#include <chrono>
+#include <iostream>
+#include <vector>
+
+#include <curand_kernel.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+
+#define CUDA_CALL(cuda_function, ...)  { \
+    cudaError_t status = cuda_function(__VA_ARGS__); \
+    cudaEnsureSuccess(status, #cuda_function, true, __FILE__, __LINE__); \
+}
+
+#define CUDA_CHECK() \
+{\
+    cudaDeviceSynchronize();\
+    cudaError_t status = cudaGetLastError();\
+    cudaEnsureSuccess(status, "last check", true, __FILE__, __LINE__); \
+}
+
+bool cudaEnsureSuccess(cudaError_t status, const char *status_context_description,
+                       bool die_on_error, const char *filename, unsigned line_number);
+

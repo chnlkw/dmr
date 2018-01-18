@@ -5,6 +5,7 @@
 #include <functional>
 #include <set>
 
+#include "arraygpu/All.h"
 #include "dmr.h"
 #include "PartitionedDMR.h"
 
@@ -130,6 +131,44 @@ public:
 int main() {
     std::cout << "Hello, World!" << std::endl;
 
+//    DataCopyInitP2P();
+//    g_context.SetDevice(0);
+//    Array<char> d_tmp(10);
+//    g_context.SetDevice(-1);
+//    Array<char> h_tmp(10);
+//    d_tmp.CopyFromAsync(h_tmp, 0);
+//    CUDA_CHECK();
+
+    {
+        std::vector<int> keys = {1, 3, 4, 2, 5};
+//        Array<int> a_keys(keys);
+        DMR<int, vector_constructor_t> dmr1(keys);
+        Array<float> h_values(keys.size());
+        for (int i = 0; i < keys.size(); i++) {
+            h_values[i] = keys[i]*10.0;
+        }
+        g_context.SetDevice(0);
+        DMR<int, array_constructor_t> dmr2(dmr1);
+        Array<float> d_values = h_values;
+        auto red = dmr2.GetShuffler<float>(d_values);
+        CUDA_CHECK();
+        h_values.CopyFrom(red.Values());
+        {
+            auto &keys = dmr1.Keys();
+            auto &offs = dmr1.Offs();
+            auto &values = red.Values();
+            for (size_t i = 0; i < keys.size(); i++) {
+                auto k = keys[i];
+                for (int j = offs[i]; j < offs[i + 1]; j++) {
+                    auto v = h_values[j];
+                    printf("%d,%f ", k, v);
+                }
+            }
+            printf("\n");
+        }
+    }
+
+#if 0
     int N = 10;
 //    DMR<uint32_t> dmr(N, M);
     PartitionedDMR<uint32_t> dmr(N);
@@ -159,7 +198,7 @@ int main() {
         for (size_t i = 0; i < keys.size(); i++) {
             auto k = keys[i];
             if (exist_keys.count(k)) {
-                throw std::runtime_error("same key in defferent partitions");
+                throw std::runtime_error("same key in different partitions");
             }
             exist_keys.insert(k);
             for (int j = offs[i]; j < offs[i + 1]; j++) {
@@ -174,6 +213,7 @@ int main() {
             abort();
         }
     }
+#endif
     std::cout << "OK" << std::endl;
     return 0;
 }

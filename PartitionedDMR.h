@@ -7,6 +7,7 @@
 
 //#include <range/v3/all.hpp>
 #include "dmr.h"
+#include "array_constructor.h"
 #include "AlltoAllDMR.h"
 
 #include <algorithm>
@@ -17,28 +18,30 @@ auto f_key_less = [](auto a, auto b) { return a.first < b.first; };
 
 //using namespace ranges;
 
-template<class TKey>
+template<class TKey, class ArrayConstructor = vector_constructor_t>
 class PartitionedDMR {
+    template <class T>
+    using Vector = decltype(ArrayConstructor::template Construct<T>());
 public:
     using TPar = uint32_t;
     using TOff = size_t;
 
     struct Reducer {
-        std::vector<TKey> keys;
-        std::vector<TOff> offs;
+        Vector<TKey> keys;
+        Vector<TOff> offs;
 
-        const std::vector<TKey> &Keys() const { return keys; }
+        const Vector<TKey> &Keys() const { return keys; }
 
-        const std::vector<TOff> &Offs() const { return offs; }
+        const Vector<TOff> &Offs() const { return offs; }
     };
 
 private:
     size_t num_mappers_;
-    std::vector<std::pair<const TKey *, size_t>> mapper_keys_;
+    Vector<std::pair<const TKey *, size_t>> mapper_keys_;
     TKey max_key_;
-    std::vector<DMR<TPar>> dmr1;
+    Vector<DMR<TPar>> dmr1;
     AlltoAllDMR alltoall_;
-    std::vector<DMR<TKey>> dmr3;
+    Vector<DMR<TKey>> dmr3;
 public:
 
     PartitionedDMR(size_t num_mappers) :
@@ -51,6 +54,8 @@ public:
     }
 
     void SetMapperKeys(size_t mapper_id, const TKey *keys, size_t count) {
+        if (mapper_id > num_mappers_)
+            throw std::runtime_error("mapper_id too large");
         mapper_keys_[mapper_id] = {keys, count};
         for (size_t i = 0; i < count; i++)
             max_key_ = std::max(max_key_, keys[i]);
@@ -63,16 +68,16 @@ public:
         auto partitioner = [key_partition_size](TKey k) -> TPar { return k / key_partition_size; };
 
         // local partition
-        std::vector<std::vector<TKey>> parted_keys(num_mappers_);
+        Vector<Vector<TKey>> parted_keys(num_mappers_);
         for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
             auto keys = mapper_keys_[mapper_id].first;
             size_t count = mapper_keys_[mapper_id].second;
 
-            std::vector<TPar> par_id(count);
+            Vector<TPar> par_id(count);
             std::transform(keys, keys + count, par_id.begin(), partitioner);
 
             auto &dmr = dmr1[mapper_id];
-            dmr.SetMapperKeys(par_id.data(), par_id.size());
+            dmr.SetMapperKeys(std::move(par_id));
 
             auto shuf = dmr.template GetShuffler<TKey>();
             shuf.SetMapperValues(keys, count);
@@ -83,7 +88,7 @@ public:
         // global partition
         for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
             auto &red = dmr1[mapper_id].GetReducerIdx();
-            std::vector<size_t> counts(num_mappers_);
+            Vector<size_t> counts(num_mappers_);
             for (size_t i = 0; i < red.Keys().size(); i++) {
                 counts[red.Keys()[i]] = red.Offs()[i + 1] - red.Offs()[i];
             }
@@ -101,7 +106,7 @@ public:
             auto keys = shuf2.Value(mapper_id);
 
             auto &dmr = dmr3[mapper_id];
-            dmr.SetMapperKeys(keys.data(), keys.size());
+            dmr.SetMapperKeys(keys);
         }
     }
 
@@ -110,12 +115,12 @@ public:
 
     private:
         const PartitionedDMR *dmr_;
-        std::vector<std::pair<const TKey *, size_t>> mapper_values_;
+        Vector<std::pair<const TKey *, size_t>> mapper_values_;
 
         struct Reducer {
-            const std::vector<TKey> &keys;
-            const std::vector<TOff> &offs;
-            std::vector<TValue> values;
+            const Vector<TKey> &keys;
+            const Vector<TOff> &offs;
+            Vector<TValue> values;
 
             Reducer(const typename ::DMR<TKey>::ReducerIdx &reducer) :
                     keys(reducer.Keys()),
@@ -123,15 +128,15 @@ public:
                     values(reducer.Offs().back()) {
             }
 
-            const std::vector<TKey> &Keys() const { return keys; }
+            const Vector<TKey> &Keys() const { return keys; }
 
-            const std::vector<TOff> &Offs() const { return offs; }
+            const Vector<TOff> &Offs() const { return offs; }
 
-            std::vector<TValue> &Values() { return values; }
+            Vector<TValue> &Values() { return values; }
 
         };
 
-        std::vector<Reducer> reducers_;
+        Vector<Reducer> reducers_;
 
     public:
 
@@ -152,7 +157,7 @@ public:
 
         void Run() {
             size_t size = dmr_->num_mappers_;
-            std::vector<std::vector<TKey>> parted_values(size);
+            Vector<Vector<TKey>> parted_values(size);
             for (size_t mapper_id = 0; mapper_id < size; mapper_id++) {
                 auto shuf = dmr_->dmr1[mapper_id].template GetShuffler<TValue>();
                 shuf.SetMapperValues(mapper_values_[mapper_id].first, mapper_values_[mapper_id].second);
@@ -185,7 +190,7 @@ public:
 //            }
         }
 
-        std::vector<Reducer> &GetReducer() {
+        Vector<Reducer> &GetReducer() {
             return reducers_;
         }
 
