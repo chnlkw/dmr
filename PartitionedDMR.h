@@ -20,7 +20,7 @@ auto f_key_less = [](auto a, auto b) { return a.first < b.first; };
 
 template<class TKey, class ArrayConstructor = vector_constructor_t>
 class PartitionedDMR {
-    template <class T>
+    template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
 public:
     using TPar = uint32_t;
@@ -30,177 +30,89 @@ public:
         Vector<TKey> keys;
         Vector<TOff> offs;
 
-        const Vector<TKey> &Keys() const { return keys; }
-
-        const Vector<TOff> &Offs() const { return offs; }
     };
 
 private:
-    size_t num_mappers_;
-    Vector<std::pair<const TKey *, size_t>> mapper_keys_;
+    size_t size_;
     TKey max_key_;
-    Vector<DMR<TPar>> dmr1;
+    std::vector<DMR<TPar>> dmr1_;
     AlltoAllDMR alltoall_;
-    Vector<DMR<TKey>> dmr3;
+    std::vector<DMR<TKey>> dmr3_;
 public:
 
-    PartitionedDMR(size_t num_mappers) :
-            num_mappers_(num_mappers),
-            mapper_keys_(num_mappers),
-            dmr1(num_mappers),
-            alltoall_(num_mappers),
-            dmr3(num_mappers),
+    explicit PartitionedDMR(const std::vector<Vector<TKey>> &mapper_keys) :
+            size_(mapper_keys.size()),
+            dmr1_(size_),
+            dmr3_(size_),
             max_key_(0) {
+        Prepare(mapper_keys);
     }
 
-    void SetMapperKeys(size_t mapper_id, const TKey *keys, size_t count) {
-        if (mapper_id > num_mappers_)
-            throw std::runtime_error("mapper_id too large");
-        mapper_keys_[mapper_id] = {keys, count};
-        for (size_t i = 0; i < count; i++)
-            max_key_ = std::max(max_key_, keys[i]);
-    }
-
-    void Prepare() {
+    void Prepare(const std::vector<Vector<TKey>> &mapper_keys) {
+        max_key_ = 0;
+        for (auto &v : mapper_keys)
+            max_key_ = std::accumulate(v.begin(), v.end(), max_key_, [](auto a, auto b) { return std::max(a, b); });
 
         // init partitioner
-        size_t key_partition_size = (max_key_ + num_mappers_) / num_mappers_;
+        size_t key_partition_size = (max_key_ + size_) / size_;
         auto partitioner = [key_partition_size](TKey k) -> TPar { return k / key_partition_size; };
 
+        std::vector<Vector<TKey>> parted_keys;
         // local partition
-        Vector<Vector<TKey>> parted_keys(num_mappers_);
-        for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
-            auto keys = mapper_keys_[mapper_id].first;
-            size_t count = mapper_keys_[mapper_id].second;
-
-            Vector<TPar> par_id(count);
-            std::transform(keys, keys + count, par_id.begin(), partitioner);
-
-            auto &dmr = dmr1[mapper_id];
-            dmr.SetMapperKeys(std::move(par_id));
-
-            auto shuf = dmr.template GetShuffler<TKey>();
-            shuf.SetMapperValues(keys, count);
-            shuf.Run();
-            parted_keys[mapper_id] = std::move(shuf.GetReducer().Values());
+        for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
+            auto &keys = mapper_keys[mapper_id];
+            Vector<TPar> par_id(size_);
+            std::transform(keys.begin(), keys.end(), par_id.begin(), partitioner);
+            DMR<TPar> dmr(par_id);
+            parted_keys.push_back(dmr.ShuffleValues<TKey>(keys));
+            dmr1_[mapper_id] = std::move(dmr);
         }
 
         // global partition
-        for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
-            auto &red = dmr1[mapper_id].GetReducerIdx();
-            Vector<size_t> counts(num_mappers_);
-            for (size_t i = 0; i < red.Keys().size(); i++) {
-                counts[red.Keys()[i]] = red.Offs()[i + 1] - red.Offs()[i];
+        std::vector<std::vector<size_t>> send_counts(size_);
+        for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
+            auto &dmr = dmr1_[mapper_id];
+            Vector<size_t> counts(size_);
+            for (size_t i = 0; i < dmr.Keys().size(); i++) {
+                TKey k = dmr.Keys()[i];
+                counts[k] = dmr.Offs()[i + 1] - dmr.Offs()[i];
             }
-            alltoall_.SetCounts(mapper_id, counts.data());
+            send_counts[mapper_id] = std::move(counts);
         }
-        alltoall_.Prepare();
-        auto shuf2 = alltoall_.template GetShuffler<TKey>();
-        for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
-            auto &keys = parted_keys[mapper_id];
-            shuf2.SetMapperValues(mapper_id, keys.data(), keys.size());
-        }
-        shuf2.Run();
+        alltoall_.Prepare(send_counts);
+        auto results = alltoall_.ShuffleValues(parted_keys);
+
         // local sort
-        for (size_t mapper_id = 0; mapper_id < num_mappers_; mapper_id++) {
-            auto keys = shuf2.Value(mapper_id);
-
-            auto &dmr = dmr3[mapper_id];
-            dmr.SetMapperKeys(keys);
+        for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
+            dmr3_[mapper_id].Prepare(results[mapper_id]);
         }
     }
 
-    template<class TValue>
-    struct Shuffler {
-
-    private:
-        const PartitionedDMR *dmr_;
-        Vector<std::pair<const TKey *, size_t>> mapper_values_;
-
-        struct Reducer {
-            const Vector<TKey> &keys;
-            const Vector<TOff> &offs;
-            Vector<TValue> values;
-
-            Reducer(const typename ::DMR<TKey>::ReducerIdx &reducer) :
-                    keys(reducer.Keys()),
-                    offs(reducer.Offs()),
-                    values(reducer.Offs().back()) {
-            }
-
-            const Vector<TKey> &Keys() const { return keys; }
-
-            const Vector<TOff> &Offs() const { return offs; }
-
-            Vector<TValue> &Values() { return values; }
-
-        };
-
-        Vector<Reducer> reducers_;
-
-    public:
-
-        Shuffler(const PartitionedDMR *dmr) :
-                dmr_(dmr),
-                mapper_values_(dmr->num_mappers_) {
-            for (auto &d : dmr_->dmr3) {
-                reducers_.emplace_back(d.GetReducerIdx());
-            }
+    template<class Vec>
+    std::vector<Vec> ShuffleValues(const std::vector<Vec> &value_in) const {
+        using TValue = typename Vec::value_type;
+        std::vector<Vec> parted_values;
+        for (size_t i = 0; i < size_; i++) {
+            parted_values.push_back(dmr1_[i].ShuffleValues<TValue>(value_in[i]));
         }
 
-        void SetMapperValues(size_t mapper_id, const TValue *values, size_t count) {
-            if (count != dmr_->mapper_keys_[mapper_id].second) {
-                throw std::runtime_error("SetMapperValues error, count mismatch");
-            }
-            mapper_values_[mapper_id] = {values, count};
+        std::vector<Vec> shufed = alltoall_.ShuffleValues(parted_values);
+
+        std::vector<Vec> ret;
+        for (size_t i = 0; i < size_; i++) {
+            ret.push_back(dmr3_[i].ShuffleValues<TValue>(shufed[i]));
         }
 
-        void Run() {
-            size_t size = dmr_->num_mappers_;
-            Vector<Vector<TKey>> parted_values(size);
-            for (size_t mapper_id = 0; mapper_id < size; mapper_id++) {
-                auto shuf = dmr_->dmr1[mapper_id].template GetShuffler<TValue>();
-                shuf.SetMapperValues(mapper_values_[mapper_id].first, mapper_values_[mapper_id].second);
-                shuf.Run();
-                parted_values[mapper_id] = std::move(shuf.GetReducer().Values());
-            }
-            auto shuf2 = dmr_->alltoall_.template GetShuffler<TValue>();
-            for (size_t mapper_id = 0; mapper_id < size; mapper_id++) {
-                auto &values = parted_values[mapper_id];
-                shuf2.SetMapperValues(mapper_id, values.data(), values.size());
-            }
-            shuf2.Run();
-
-            for (size_t mapper_id = 0; mapper_id < size; mapper_id++) {
-                auto &values = shuf2.Value(mapper_id);
-                auto &dmr = dmr_->dmr3[mapper_id];
-
-                auto shuf3 = dmr.template GetShuffler<TValue>();
-                shuf3.SetMapperValues(values.data(), values.size());
-                shuf3.Run();
-                reducers_[mapper_id].Values() = std::move(shuf3.GetReducer().Values());
-            }
-//                const TValue *values = mapper_values_[mapper_id].first;
-//                size_t count = mapper_values_[mapper_id].second;
-//                for (size_t i = 0; i < count; i++) {
-//                    size_t reducer_id = dmr_->shuffle_indices_[mapper_id][i].first;
-//                    size_t reducer_off = dmr_->shuffle_indices_[mapper_id][i].second;
-//                    reducers_[reducer_id].Values()[reducer_off] = values[i];
-//                }
-//            }
-        }
-
-        Vector<Reducer> &GetReducer() {
-            return reducers_;
-        }
-
-    };
-
-    template<class TValue>
-    Shuffler<TValue> GetShuffler() {
-        return Shuffler<TValue>(this);
+        return std::move(ret);
     }
 
+    const Vector<TKey> &Keys(size_t i) const { return dmr3_[i].Keys(); }
+
+    const Vector<TOff> &Offs(size_t i) const { return dmr3_[i].Offs(); }
+
+    size_t Size() const {
+        return size_;
+    }
 };
 
 

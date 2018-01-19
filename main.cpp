@@ -150,13 +150,12 @@ int main() {
         g_context.SetDevice(0);
         DMR<int, array_constructor_t> dmr2(dmr1);
         Array<float> d_values = h_values;
-        auto red = dmr2.GetShuffler<float>(d_values);
+        auto d_val_out = dmr2.ShuffleValues<float>(d_values);
         CUDA_CHECK();
-        h_values.CopyFrom(red.Values());
+        h_values.CopyFrom(d_val_out);
         {
             auto &keys = dmr1.Keys();
             auto &offs = dmr1.Offs();
-            auto &values = red.Values();
             for (size_t i = 0; i < keys.size(); i++) {
                 auto k = keys[i];
                 for (int j = offs[i]; j < offs[i + 1]; j++) {
@@ -167,11 +166,11 @@ int main() {
             printf("\n");
         }
     }
+    g_context.SetDevice(-1);
 
-#if 0
+#if 1
     int N = 10;
 //    DMR<uint32_t> dmr(N, M);
-    PartitionedDMR<uint32_t> dmr(N);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
     for (int i = 0; i < 100; i++) {
@@ -181,20 +180,15 @@ int main() {
         values[i % N].push_back(v);
         a[k] ^= v;
     }
-    for (int i = 0; i < N; i++) {
-        dmr.SetMapperKeys(i, keys[i].data(), keys[i].size());
-    }
-    dmr.Prepare();
-    auto shuf = dmr.GetShuffler<uint32_t>();
-    for (int i = 0; i < N; i++) {
-        shuf.SetMapperValues(i, values[i].data(), values[i].size());
-    }
-    shuf.Run();
+    PartitionedDMR<uint32_t> dmr(keys);
+
+    auto result = dmr.ShuffleValues(values);
+
     std::set<int> exist_keys;
-    for (auto &reducer : shuf.GetReducer()) {
-        auto &keys = reducer.Keys();
-        auto &offs = reducer.Offs();
-        auto &values = reducer.Values();
+    for (size_t i = 0; i < dmr.Size(); i++) {
+        auto &keys = dmr.Keys(i);
+        auto &offs = dmr.Offs(i);
+        auto &values = result[i];
         for (size_t i = 0; i < keys.size(); i++) {
             auto k = keys[i];
             if (exist_keys.count(k)) {

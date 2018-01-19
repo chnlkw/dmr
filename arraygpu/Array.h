@@ -28,11 +28,11 @@ public:
               owned_(true) {
     }
 
-    ArrayBase(AllocatorBase *allocator, size_t bytes)
+    ArrayBase(AllocatorBase *allocator, int device, size_t bytes)
             : allocator_(allocator),
               ptr_(allocator->Alloc(bytes)),
               bytes_(bytes),
-              device_(g_context.GetDevice()),
+              device_(device),
               owned_(true) {
     }
 
@@ -65,7 +65,7 @@ public:
     }
 
     ArrayBase(const ArrayBase &that, size_t off, size_t bytes)
-            : allocator_(that.allocator_),
+            : allocator_(nullptr),
               bytes_(bytes),
               ptr_((char *) that.ptr_ + off),
               device_(that.device_),
@@ -79,6 +79,10 @@ public:
             ptr_ = nullptr;
             owned_ = false;
         }
+    }
+
+    ArrayBase Renew(size_t bytes) const {
+        return {allocator_, device_, bytes};
     }
 
     void CopyFrom(const ArrayBase &that) {
@@ -105,15 +109,22 @@ class Array : public ArrayBase {
     size_t count_;
 public:
 
+    using value_type = T;
+
     explicit Array(size_t count = 0) :
             ArrayBase(count * sizeof(T)),
             count_(count) {
     }
 
-    Array(AllocatorBase *allocator, size_t count) : // need allocated
-            ArrayBase(allocator, count * sizeof(T)),
-            count_(count) {
+    Array(AllocatorBase *allocator, int device, size_t count = 0)
+            : ArrayBase(allocator, device, count * sizeof(T)),
+              count_(count) {
     }
+
+//    Array(AllocatorBase *allocator, size_t count) : // need allocated
+//            ArrayBase(allocator, count * sizeof(T)),
+//            count_(count) {
+//    }
 
 //    Array(MultiDeviceAllocator &allocator, T *ptr, size_t count, int device) : // not allocated
 //            ArrayBase(allocator, ptr, count * sizeof(T), device),
@@ -159,6 +170,10 @@ public:
         Array<T> that(allocator_, count_, device);
         that.CopyFrom(*this);
         return that;
+    }
+
+    Array<T> Renew(size_t count) const {
+        return {allocator_, device_, count};
     }
 
     Array<T> Slice(size_t beg, size_t end) {

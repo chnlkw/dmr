@@ -17,31 +17,6 @@
 using TOff = size_t;
 
 template<class TKey, class ArrayConstructor = vector_constructor_t>
-struct ReducerIdx_s {
-    template<class T>
-    using Vector = decltype(ArrayConstructor::template Construct<T>());
-
-    size_t value_size_;
-    Vector<TKey> keys;
-    Vector<TOff> offs;
-
-    const Vector<TKey> &Keys() const { return keys; }
-
-    const Vector<TOff> &Offs() const { return offs; }
-
-    ReducerIdx_s() {
-    }
-
-    template<class Cons>
-    ReducerIdx_s(const ReducerIdx_s<TKey, Cons> &that) :
-            keys(that.Keys()),
-            offs(that.Offs()),
-            value_size_(that.value_size_) {
-    }
-
-};
-
-template<class TKey, class ArrayConstructor = vector_constructor_t>
 class DMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
@@ -52,11 +27,24 @@ private:
     Vector<TOff> reducer_offs_;
     Vector<TOff> gather_indices_;
 
+public:
+    DMR() {}
+
+    DMR(const Vector<TKey> &keys) {
+        Prepare(keys);
+    }
+
     void Prepare(const Vector<TKey> &keys) {
+        size_ = keys.size();
+        reducer_keys_.clear();
+        reducer_offs_.clear();
+        gather_indices_.clear();
+
         Vector<std::pair<TKey, TOff>> metas(Size());
         for (size_t i = 0; i < Size(); i++) {
             metas[i] = {keys[i], i};
         }
+
         std::sort(metas.begin(), metas.end());
 
         gather_indices_.resize(Size());
@@ -73,12 +61,6 @@ private:
         reducer_offs_.push_back(Size());
         reducer_keys_.shrink_to_fit();
         reducer_offs_.shrink_to_fit();
-    }
-
-public:
-    DMR(const Vector<TKey> &keys) :
-            size_(keys.size()) {
-        Prepare(keys);
     }
 
     template<class Cons>
@@ -106,46 +88,14 @@ public:
     }
 
     template<class TValue>
-    struct Shuffler {
-    private:
-        const DMR *dmr_;
-        Vector<TValue> reducer_values_;
-
-    public:
-        Shuffler(const DMR *dmr, const Vector<TValue> &mapper_values) :
-                dmr_(dmr),
-                reducer_values_(dmr_->Size()) {
-            assert(mapper_values.size() == reducer_values_.size());
-            Run(mapper_values);
-        }
-
-        const Vector<TKey> &Keys() const { return dmr_->ReducerKeys(); }
-
-        const Vector<TOff> &Offs() const { return dmr_->ReducerOffs(); }
-
-        Vector<TValue> &Values() { return reducer_values_; }
-
-    private:
-        void Run(const Vector<TValue> &mapper_values) {
-            Algorithm::ShuffleByIdx(
-                    reducer_values_,
-                    mapper_values,
-                    dmr_->GatherIndices()
-            );
-
-//            const TOff *idx = dmr_->GatherIndices().data();
-//            const TValue *src = mapper_values.data();
-//            TValue *dst = reducer_values_.data();
-//            for (size_t i = 0; i < dmr_->Size(); i++) {
-//                dst[i] = src[idx[i]];
-//            }
-        }
-
-    };
-
-    template<class TValue>
-    Shuffler<TValue> GetShuffler(const Vector<TValue> &values) const {
-        return Shuffler<TValue>(this, values);
+    Vector<TValue> ShuffleValues(const Vector<TValue> &value_in) const {
+        Vector<TValue> value_out = Algorithm::Renew(value_in, value_in.size());
+        Algorithm::ShuffleByIdx(
+                value_out,
+                value_in,
+                gather_indices_
+        );
+        return std::move(value_out);
     }
 
 };
