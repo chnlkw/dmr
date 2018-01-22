@@ -9,6 +9,7 @@
 
 class Context {
 private:
+    int num_devices_;
     int device_;
     cudaStream_t stream_;
     MultiDeviceAllocator allocator_;
@@ -18,6 +19,8 @@ public:
     void SetDevice(int device_id);
 
     int GetDevice() const;
+
+    int GetNumDevices() const;
 
     void SetStream(cudaStream_t stream = 0);
 

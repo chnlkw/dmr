@@ -131,13 +131,12 @@ public:
 int main() {
     std::cout << "Hello, World!" << std::endl;
 
-//    DataCopyInitP2P();
-//    g_context.SetDevice(0);
-//    Array<char> d_tmp(10);
-//    g_context.SetDevice(-1);
-//    Array<char> h_tmp(10);
-//    d_tmp.CopyFromAsync(h_tmp, 0);
-//    CUDA_CHECK();
+    g_context.SetDevice(0);
+    Array<char> d_tmp(10);
+    g_context.SetDevice(-1);
+    Array<char> h_tmp(10);
+    d_tmp.CopyFromAsync(h_tmp, 0);
+    CUDA_CHECK();
 
     {
         std::vector<int> keys = {1, 3, 4, 2, 5};
@@ -181,8 +180,19 @@ int main() {
         a[k] ^= v;
     }
     PartitionedDMR<uint32_t> dmr(keys);
+#if 0
+    PartitionedDMR<uint32_t, array_constructor_t> dmr2(dmr);
 
-    auto result = dmr.ShuffleValues(values);
+    std::vector<Array<uint32_t>> d_values;
+    for (int i = 0; i < N; i++) {
+        g_context.SetDevice(i % g_context.GetNumDevices());
+        d_values.push_back(Array<uint32_t>(values[i]));
+    }
+
+    auto result = dmr2.ShuffleValues<uint32_t>(d_values);
+#else
+    auto result = dmr.ShuffleValues<uint32_t>(values);
+#endif
 
     std::set<int> exist_keys;
     for (size_t i = 0; i < dmr.Size(); i++) {

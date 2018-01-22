@@ -3,14 +3,21 @@
 //
 
 #include "Context.h"
+#include "DataCopy.h"
 
 Context::Context() :
         device_(-1),
         allocator_([](int device) -> AllocatorBase * { return new CudaAllocator(device); }) {
+    CUDA_CALL(cudaGetDeviceCount, &num_devices_);
+    DataCopyInitP2P();
 }
 
 int Context::GetDevice() const {
     return device_;
+}
+
+int Context::GetNumDevices() const {
+    return num_devices_;
 }
 
 void Context::SetDevice(int device_id) {

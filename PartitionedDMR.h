@@ -35,9 +35,9 @@ public:
 private:
     size_t size_;
     TKey max_key_;
-    std::vector<DMR<TPar>> dmr1_;
+    std::vector<DMR<TPar, ArrayConstructor>> dmr1_;
     AlltoAllDMR alltoall_;
-    std::vector<DMR<TKey>> dmr3_;
+    std::vector<DMR<TKey, ArrayConstructor>> dmr3_;
 public:
 
     explicit PartitionedDMR(const std::vector<Vector<TKey>> &mapper_keys) :
@@ -88,19 +88,29 @@ public:
         }
     }
 
-    template<class Vec>
-    std::vector<Vec> ShuffleValues(const std::vector<Vec> &value_in) const {
-        using TValue = typename Vec::value_type;
-        std::vector<Vec> parted_values;
+    template<class Cons>
+    PartitionedDMR(const PartitionedDMR<TKey, Cons> &that) :
+            size_(that.Size()),
+            max_key_(that.MaxKey()),
+            alltoall_(that.GetAlltoallDMR()) {
+        for (auto& d : that.GetDMR1())
+            dmr1_.push_back(d);
+        for (auto& d : that.GetDMR3())
+            dmr3_.push_back(d);
+    }
+
+    template<class TValue>
+    std::vector<Vector<TValue>> ShuffleValues(const std::vector<Vector<TValue>> &value_in) const {
+        std::vector<Vector<TValue>> parted_values;
         for (size_t i = 0; i < size_; i++) {
-            parted_values.push_back(dmr1_[i].ShuffleValues<TValue>(value_in[i]));
+            parted_values.push_back(dmr1_[i].template ShuffleValues<TValue>(value_in[i]));
         }
 
-        std::vector<Vec> shufed = alltoall_.ShuffleValues(parted_values);
+        auto shufed = alltoall_.ShuffleValues(parted_values);
 
-        std::vector<Vec> ret;
+        std::vector<Vector<TValue>> ret;
         for (size_t i = 0; i < size_; i++) {
-            ret.push_back(dmr3_[i].ShuffleValues<TValue>(shufed[i]));
+            ret.push_back(dmr3_[i].template ShuffleValues<TValue>(shufed[i]));
         }
 
         return std::move(ret);
@@ -113,6 +123,16 @@ public:
     size_t Size() const {
         return size_;
     }
+
+    TKey MaxKey() const {
+        return max_key_;
+    }
+
+    const std::vector<DMR<TPar>> &GetDMR1() const { return dmr1_; }
+
+    const AlltoAllDMR &GetAlltoallDMR() const { return alltoall_; }
+
+    const std::vector<DMR<TKey>> &GetDMR3() const { return dmr3_; }
 };
 
 
