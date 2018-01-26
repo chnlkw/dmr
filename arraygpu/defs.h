@@ -20,14 +20,18 @@ class Node;
 
 class DataBase;
 
+template<class T>
+class Data;
+
 class TaskBase;
 
-template <class T>
+template<class T>
 using ArrayPtr = std::shared_ptr<Array<T>>;
 using AllocatorPtr = std::shared_ptr<AllocatorBase>;
 using DevicePtr = std::shared_ptr<DeviceBase>;
 using NodePtr = std::shared_ptr<Node>;
-using DataPtr = std::shared_ptr<DataBase>;
+template<class T>
+using DataPtr = std::shared_ptr<Data<T>>;
 using TaskPtr = std::shared_ptr<TaskBase>;
 
 #endif //LDA_DEFS_H

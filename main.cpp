@@ -11,7 +11,7 @@
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-std::uniform_int_distribution<> dis(0, 9);
+std::uniform_int_distribution<uint32_t> dis(0, 9);
 std::map<int, int> a;
 
 auto print = [](auto &x) { std::cout << " " << x; };
@@ -162,7 +162,7 @@ int main() {
         }
     }
 
-#if 0
+#if 1
     int N = 10;
 //    DMR<uint32_t> dmr(N, M);
 
@@ -176,15 +176,16 @@ int main() {
     }
     PartitionedDMR<uint32_t> dmr(keys);
 #if 1
-    PartitionedDMR<uint32_t, array_constructor_t> dmr2(dmr);
+    PartitionedDMR<uint32_t, data_constructor_t> dmr2(dmr);
 
-    std::vector<Array<uint32_t>> d_values;
+    std::vector<Data<uint32_t>> d_values;
     for (int i = 0; i < N; i++) {
-        g_context.SetDevice(i % g_context.GetNumDevices());
-        d_values.push_back(Array<uint32_t>(values[i]));
+        Device::Use(gpu_devices[i % gpu_devices.size()]);
+        d_values.emplace_back(values[i]);
     }
 
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
+    Device::UseCPU();
 #else
     auto result = dmr.ShuffleValues<uint32_t>(values);
 #endif
@@ -194,6 +195,7 @@ int main() {
         auto &keys = dmr.Keys(i);
         auto &offs = dmr.Offs(i);
         auto &values = result[i];
+        values.Use(Device::Current());
         for (size_t i = 0; i < keys.size(); i++) {
             auto k = keys[i];
             if (exist_keys.count(k)) {

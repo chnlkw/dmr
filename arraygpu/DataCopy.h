@@ -10,9 +10,9 @@
 
 extern std::map<int, std::map<int, bool>> data_copy_p2p;
 
-void DataCopy(void *dst_ptr, int dst_device, void *src_ptr, int src_device, size_t bytes);
+void DataCopy(void *dst_ptr, int dst_device, const void *src_ptr, int src_device, size_t bytes);
 
-void DataCopyAsync(void *dst_ptr, int dst_device, void *src_ptr, int src_device, size_t bytes, cudaStream_t stream);
+void DataCopyAsync(void *dst_ptr, int dst_device, const void *src_ptr, int src_device, size_t bytes, cudaStream_t stream);
 
 void DataCopyInitP2P();
 

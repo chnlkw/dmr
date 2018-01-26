@@ -62,10 +62,11 @@ public:
         }
         for (size_t i = 0; i < size_; i++) {
             for (size_t j = 0; j < size_; j++) {
-                auto src_beg = value_in[j].data() + send_offs_[j][i];
-                auto src_end = src_beg + send_counts_[j][i];
-                auto dst_beg = value_out[i].data() + recv_offs_[i][j];
-                std::copy(src_beg, src_end, dst_beg);
+                Algorithm::Copy(value_in[j], send_offs_[j][i], value_out[i], recv_offs_[i][j], send_counts_[j][i]);
+//                auto src_beg = value_in[j].begin() + send_offs_[j][i];
+//                auto src_end = src_beg + send_counts_[j][i];
+//                auto dst_beg = value_out[i].begin() + recv_offs_[i][j];
+//                std::copy(src_beg, src_end, dst_beg);
             }
         }
         return std::move(value_out);

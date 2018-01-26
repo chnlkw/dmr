@@ -14,6 +14,7 @@ template<class T>
 class Data : public DataBase {
 private:
     size_t count_;
+    mutable DevicePtr cur_device_;
     mutable T *beg_, *end_;
     mutable std::map<DevicePtr, ArrayPtr<T>> replicas_;
     mutable std::map<DevicePtr, ArrayPtr<T>> invalids_;
@@ -95,6 +96,10 @@ public:
         invalids_.clear();
     }
 
+    DevicePtr DeviceCurrent() const {
+        return cur_device_;
+    }
+
     size_t size() const {
         return count_;
     }
@@ -116,6 +121,7 @@ private:
     void SetPointers(DevicePtr device) const {
         beg_ = (T *) GetFrom(Device::Current())->data();
         end_ = beg_ + count_;
+        cur_device_ = device;
     }
 
     void InvalidOthers(DevicePtr device) {

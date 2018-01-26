@@ -25,3 +25,4 @@ void shuffle_by_idx_gpu(T *dst, const T *src, const TOff *idx, size_t size) {
 }
 
 template void shuffle_by_idx_gpu<float, size_t>(float *dst, const float *src, const size_t *idx, size_t size);
+template void shuffle_by_idx_gpu<unsigned int, size_t>(unsigned int *dst, const unsigned int *src, const size_t *idx, size_t size);

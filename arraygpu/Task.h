@@ -29,7 +29,7 @@ public:
 };
 
 class TaskBase : public Node {
-    std::list<DataPtr> inputs_, outputs_;
+//    std::list<DataPtr> inputs_, outputs_;
 public:
     virtual void Run(DevicePtr device) = 0;
 };
