@@ -12,6 +12,7 @@
 #include <sstream>
 
 #include "cuda_utils.h"
+#include "defs.h"
 
 class AllocatorBase {
 
@@ -25,16 +26,27 @@ public:
     virtual void Free(void *ptr) = 0;
 };
 
+class CPUAllocator : public AllocatorBase {
+public:
+    void *Alloc(size_t size) {
+        return malloc(size);
+    }
+
+    void Free(void *ptr) {
+        free(ptr);
+    }
+};
+
 class MultiDeviceAllocator {
     struct Meta {
         size_t size;
         int device;
     };
-    std::map<int, std::unique_ptr<AllocatorBase>> device_allocator_;
+    std::map<int, AllocatorPtr> device_allocator_;
     std::map<void *, Meta> meta_;
 
 public:
-    using F_AllocatorFactory = std::function<AllocatorBase *(int)>;
+    using F_AllocatorFactory = std::function<AllocatorPtr(int)>;
 private:
     F_AllocatorFactory allocator_factory_;
 public:
@@ -42,12 +54,12 @@ public:
     MultiDeviceAllocator(F_AllocatorFactory allocator_factory) :
             allocator_factory_(allocator_factory) {}
 
-    AllocatorBase *GetAllocatorByDevice(int device) {
+    AllocatorPtr GetAllocatorByDevice(int device) {
         auto it = device_allocator_.find(device);
         if (it == device_allocator_.end()) {
-            it = device_allocator_.emplace(device, std::unique_ptr<AllocatorBase>(allocator_factory_(device))).first;
+            it = device_allocator_.emplace(device, AllocatorPtr(allocator_factory_(device))).first;
         }
-        return it->second.get();
+        return it->second;
     }
 
     void *Alloc(size_t size, int device = 0) {
@@ -147,6 +159,7 @@ public:
 };
 
 class CudaAllocator : public AllocatorBase {
+protected:
     int device_;
 public:
     CudaAllocator(int device) : device_(device) {
@@ -171,18 +184,19 @@ public:
             CUDA_CALL(cudaFree, ptr);
         }
     }
+
+    int DeviceId() const { return device_; }
 };
 
-class CudaPreAllocator : public AllocatorBase {
-    int device_;
+class CudaPreAllocator : public CudaAllocator {
     size_t size_;
     size_t allocated_;
     size_t align_;
     void *ptr_;
     std::map<off_t, size_t> m_;
 public:
-    CudaPreAllocator(int device, size_t pre_alloc_bytes, size_t align) :
-            device_(device),
+    CudaPreAllocator(int device, size_t pre_alloc_bytes, size_t align = 4096) :
+            CudaAllocator(device),
             size_(pre_alloc_bytes),
             allocated_(0),
             align_(align) {
@@ -247,7 +261,7 @@ public:
 };
 
 class Allocator : public MultiDeviceAllocator {
-    static AllocatorBase *factory(int device) { return new CudaAllocator(device); }
+    static AllocatorPtr factory(int device) { return AllocatorPtr(new CudaAllocator(device)); }
 
 public:
     Allocator() : MultiDeviceAllocator(factory) {
@@ -261,11 +275,11 @@ class PreAllocator : public MultiDeviceAllocator {
 
 public:
     PreAllocator(size_t sz, size_t align = 64) : MultiDeviceAllocator(
-            [sz, align](int device) -> AllocatorBase * {
+            [sz, align](int device) -> AllocatorPtr {
                 if (device >= 0)
-                    return new CudaPreAllocator(device, sz, align);
+                    return AllocatorPtr(new CudaPreAllocator(device, sz, align));
                 else
-                    return new CudaAllocator(device);
+                    return AllocatorPtr(new CudaAllocator(device));
             }) {
 
     }

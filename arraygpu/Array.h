@@ -7,12 +7,12 @@
 
 #include "defs.h"
 #include "Allocator.h"
-#include "Context.h"
+#include "Device.h"
 #include "DataCopy.h"
 
 class ArrayBase {
 protected:
-    AllocatorBase *allocator_;
+    AllocatorPtr allocator_;
     size_t bytes_;
     void *ptr_;
     int device_;
@@ -21,14 +21,14 @@ protected:
 public:
 
     ArrayBase(size_t bytes)
-            : allocator_(g_context.GetAllocator()),
+            : allocator_(Device::Current()->GetAllocator()),
               ptr_(allocator_->Alloc(bytes)),
               bytes_(bytes),
-              device_(g_context.GetDevice()),
+              device_(Device::Current()->Id()),
               owned_(true) {
     }
 
-    ArrayBase(AllocatorBase *allocator, int device, size_t bytes)
+    ArrayBase(AllocatorPtr allocator, int device, size_t bytes)
             : allocator_(allocator),
               ptr_(allocator->Alloc(bytes)),
               bytes_(bytes),
@@ -37,19 +37,19 @@ public:
     }
 
     ArrayBase(const ArrayBase &that) :
-            allocator_(g_context.GetAllocator()),
+            allocator_(Device::Current()->GetAllocator()),
             bytes_(that.bytes_),
             ptr_(allocator_->Alloc(that.bytes_)),
-            device_(g_context.GetDevice()),
+            device_(Device::Current()->Id()),
             owned_(true) {
         CopyFrom(that);
     }
 
     ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
-            allocator_(g_context.GetAllocator()),
+            allocator_(Device::Current()->GetAllocator()),
             bytes_(bytes),
             ptr_(allocator_->Alloc(bytes)),
-            device_(g_context.GetDevice()),
+            device_(Device::Current()->Id()),
             owned_(true) {
         DataCopy(this->ptr_, this->device_, ptr, -1, this->bytes_);
     }
@@ -116,7 +116,7 @@ public:
             count_(count) {
     }
 
-    Array(AllocatorBase *allocator, int device, size_t count = 0)
+    Array(AllocatorPtr allocator, int device, size_t count = 0)
             : ArrayBase(allocator, device, count * sizeof(T)),
               count_(count) {
     }
@@ -160,6 +160,21 @@ public:
 
     const T *data() const {
         return reinterpret_cast<const T *>(ptr_);
+    }
+
+    T* begin() {
+        return reinterpret_cast<T *>(ptr_);
+    }
+
+    const T* begin() const {
+        return reinterpret_cast<const T *>(ptr_);
+    }
+
+    T* end() {
+        return begin() + count_;
+    }
+    const T* end() const {
+        return begin() + count_;
     }
 
     size_t size() const {

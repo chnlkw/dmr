@@ -82,11 +82,11 @@ struct TaskEngine {
     int Poll();
 };
 
-using TaskPtr = std::unique_ptr<GpuTaskBase>;
+using GPUTaskPtr = std::unique_ptr<GpuTaskBase>;
 
 class GpusPipeline {
     std::vector<TaskEngine> dev_engines_;
-    std::map<int, TaskPtr> tasks_;
+    std::map<int, GPUTaskPtr> tasks_;
     bool flag_empty;
     int seq;
     int cur_dev;
@@ -100,7 +100,7 @@ public:
 
     GpusPipeline(GpusPipeline &&that);
 
-    void AddGpuTask(TaskPtr ptr);
+    void AddGpuTask(GPUTaskPtr ptr);
 
     bool Tick();
 
@@ -115,7 +115,7 @@ class GpusEngine {
 public:
     GpusEngine(size_t num_stream, size_t num_devices);
 
-    void AddGpuTask(TaskPtr ptr);
+    void AddGpuTask(GPUTaskPtr ptr);
 
     void Run();
 };

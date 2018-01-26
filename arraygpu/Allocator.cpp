@@ -14,7 +14,7 @@ void UnifiedAllocator::SetDevice(int device_id) {
 
 UnifiedAllocator::UnifiedAllocator() :
         device_(-1),
-        allocator_([](int device) -> AllocatorBase * { return new CudaAllocator(device); }) {
+        allocator_([](int device) { return AllocatorPtr(new CudaAllocator(device)); }) {
 }
 
 void *UnifiedAllocator::Alloc(size_t size) {

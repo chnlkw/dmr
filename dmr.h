@@ -36,31 +36,36 @@ public:
 
     void Prepare(const Vector<TKey> &keys) {
         size_ = keys.size();
-        reducer_keys_.clear();
-        reducer_offs_.clear();
-        gather_indices_.clear();
 
-        Vector<std::pair<TKey, TOff>> metas(Size());
+        std::vector<std::pair<TKey, TOff>> metas(Size());
         for (size_t i = 0; i < Size(); i++) {
             metas[i] = {keys[i], i};
         }
 
         std::sort(metas.begin(), metas.end());
 
-        gather_indices_.resize(Size());
+        std::vector<TOff> gather_indices(Size());
+        std::vector<TKey> reducer_keys;
+        std::vector<TOff> reducer_offs;
+
+        gather_indices.resize(Size());
 
         for (size_t i = 0; i < metas.size(); i++) {
             TKey k = metas[i].first;
-            gather_indices_[i] = metas[i].second;
+            gather_indices[i] = metas[i].second;
 
             if (i == 0 || metas[i].first != metas[i - 1].first) {
-                reducer_keys_.push_back(k);
-                reducer_offs_.push_back(i);
+                reducer_keys.push_back(k);
+                reducer_offs.push_back(i);
             }
         }
-        reducer_offs_.push_back(Size());
-        reducer_keys_.shrink_to_fit();
-        reducer_offs_.shrink_to_fit();
+        reducer_offs.push_back(Size());
+        reducer_keys.shrink_to_fit();
+        reducer_offs.shrink_to_fit();
+
+        reducer_keys_ = std::move(reducer_keys);
+        reducer_offs_ = std::move(reducer_offs);
+        gather_indices_ = std::move(gather_indices);
     }
 
     template<class Cons>

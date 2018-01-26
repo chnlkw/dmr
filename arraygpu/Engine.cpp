@@ -89,7 +89,7 @@ GpusPipeline::GpusPipeline(GpusPipeline &&that) :
         cur_dev(that.cur_dev) {
 }
 
-void GpusPipeline::AddGpuTask(TaskPtr ptr) {
+void GpusPipeline::AddGpuTask(GPUTaskPtr ptr) {
     int task_seq = seq++;
     tasks_[task_seq] = std::move(ptr);
     RunTask(task_seq);
@@ -131,7 +131,7 @@ GpusEngine::GpusEngine(size_t num_stream, size_t num_devices) :
     }
 }
 
-void GpusEngine::AddGpuTask(TaskPtr ptr) {
+void GpusEngine::AddGpuTask(GPUTaskPtr ptr) {
     while (true) {
         size_t i = cur_id_;
         GpusPipeline &gpus_stream = gpus_pipelines_[i];

@@ -14,10 +14,13 @@ endif ()
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-cuda_add_executable(dmr main.cpp Algorithm.cu)
+include_directories(arraygpu)
+
+cuda_add_executable(dmr main.cpp arraygpu/Kernels.cu)
 
 aux_source_directory(arraygpu common_src)
 
 cuda_add_library(common ${common_src})
 MESSAGE("common = ${common_src}")
+
 target_link_libraries(dmr common)

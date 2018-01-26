@@ -5,7 +5,7 @@
 #include <functional>
 #include <set>
 
-#include "arraygpu/All.h"
+#include "All.h"
 #include "dmr.h"
 #include "PartitionedDMR.h"
 
@@ -129,45 +129,40 @@ public:
 //}
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
 
-    g_context.SetDevice(0);
-    Array<char> d_tmp(10);
-    g_context.SetDevice(-1);
-    Array<char> h_tmp(10);
-    d_tmp.CopyFromAsync(h_tmp, 0);
+    std::vector<DevicePtr> gpu_devices;
+    for (int i = 0; i < Device::NumGPUs(); i++) {
+        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
+    }
     CUDA_CHECK();
 
     {
         std::vector<int> keys = {1, 3, 4, 2, 5};
-//        Array<int> a_keys(keys);
-        DMR<int, vector_constructor_t> dmr1(keys);
-        Array<float> h_values(keys.size());
+        DMR<int, data_constructor_t> dmr1(keys);
+        Data<float> values(keys.size());
         for (int i = 0; i < keys.size(); i++) {
-            h_values[i] = keys[i]*10.0;
+            values[i] = keys[i] * 10.0f;
         }
-        g_context.SetDevice(0);
-        DMR<int, array_constructor_t> dmr2(dmr1);
-        Array<float> d_values = h_values;
-        auto d_val_out = dmr2.ShuffleValues<float>(d_values);
+        Device::Use(gpu_devices[0]);
+        auto d_val_out = dmr1.ShuffleValues<float>(values);
         CUDA_CHECK();
-        h_values.CopyFrom(d_val_out);
+        Device::UseCPU();
+        d_val_out.Use(Device::Current());
         {
             auto &keys = dmr1.Keys();
             auto &offs = dmr1.Offs();
             for (size_t i = 0; i < keys.size(); i++) {
                 auto k = keys[i];
                 for (int j = offs[i]; j < offs[i + 1]; j++) {
-                    auto v = h_values[j];
+                    auto v = d_val_out[j];
                     printf("%d,%f ", k, v);
                 }
             }
             printf("\n");
         }
     }
-    g_context.SetDevice(-1);
 
-#if 1
+#if 0
     int N = 10;
 //    DMR<uint32_t> dmr(N, M);
 
@@ -180,7 +175,7 @@ int main() {
         a[k] ^= v;
     }
     PartitionedDMR<uint32_t> dmr(keys);
-#if 0
+#if 1
     PartitionedDMR<uint32_t, array_constructor_t> dmr2(dmr);
 
     std::vector<Array<uint32_t>> d_values;
