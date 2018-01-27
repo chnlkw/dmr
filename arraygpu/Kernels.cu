@@ -3,6 +3,7 @@
 //
 
 #include "Kernels.h"
+#include "cuda_utils.h"
 
 template<class T, class TOff>
 __global__ void shuffle_by_idx_kernel(T *dst, const T *src, const TOff *idx, size_t size) {
@@ -21,6 +22,7 @@ __global__ void shuffle_by_idx_kernel(T *dst, const T *src, const TOff *idx, siz
 
 template<class T, class TOff>
 void shuffle_by_idx_gpu(T *dst, const T *src, const TOff *idx, size_t size) {
+
     shuffle_by_idx_kernel << < (size + 31) / 32, 32 >> > (dst, src, idx, size);
 }
 

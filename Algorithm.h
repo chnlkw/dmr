@@ -36,6 +36,7 @@ void ShuffleByIdx(DevicePtr device, Array<T> &dst, const Array<T> &src, const Ar
     } else {
         CUDA_CALL(cudaSetDevice, dev_id);
         shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), size);
+        CUDA_CHECK();
     }
 }
 

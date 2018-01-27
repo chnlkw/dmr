@@ -133,10 +133,17 @@ int main() {
 
     std::vector<DevicePtr> gpu_devices;
     for (int i = 0; i < Device::NumGPUs(); i++) {
-//        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
-        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaAllocator>(i)));
+        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
+//        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaAllocator>(i)));
     }
     CUDA_CHECK();
+    {
+        std::vector<int> tmp(1000);
+        Device::Use(gpu_devices[0]);
+        Data<int> dtmp(tmp);
+        CUDA_CHECK();
+    }
+    Device::UseCPU();
 
     if (false) {
         std::vector<int> keys = {1, 3, 4, 2, 5};
@@ -200,7 +207,7 @@ int main() {
         double speed = sum / t / (1LU << 30);
         printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
     }
-//    Device::UseCPU();
+    Device::UseCPU();
 #else
     auto result = dmr.ShuffleValues<uint32_t>(values);
 #endif
