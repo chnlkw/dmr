@@ -94,9 +94,9 @@ public:
 
     template<class TValue>
     Vector<TValue> ShuffleValues(const Vector<TValue> &value_in) const {
-        std::cout << "value_in " << std::to_string(value_in) << std::endl;
+//        std::cout << "value_in " << std::to_string(value_in) << std::endl;
         Vector<TValue> value_out = Algorithm::Renew(value_in, value_in.size());
-        std::cout << "renewed value_out " << std::to_string(value_in) << std::endl;
+//        std::cout << "renewed value_out " << std::to_string(value_in) << std::endl;
         Algorithm::ShuffleByIdx(
                 value_out,
                 value_in,

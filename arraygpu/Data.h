@@ -97,7 +97,7 @@ public:
     }
 
     DevicePtr DeviceCurrent() const {
-        printf("DeviceCurrent = %d\n", cur_device_->Id());
+//        printf("DeviceCurrent = %d\n", cur_device_->Id());
         return cur_device_;
     }
 

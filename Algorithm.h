@@ -27,6 +27,8 @@ void ShuffleByIdx(DevicePtr device, Array<T> &dst, const Array<T> &src, const Ar
     assert(size == src.size());
     assert(size == idx.size());
 
+//    printf("ShuffleByIdx size=%d, dev=%d\n", size, dev_id);
+
     if (dev_id < 0) { //CPU
         for (size_t i = 0; i < src.size(); i++) {
             dst[i] = src[idx[i]];
@@ -91,7 +93,7 @@ void Copy(const std::vector<T> &src, size_t src_off, std::vector<T> &dst, size_t
 
 template<class T>
 void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size_t count) {
-    std::cout << "copy " << src.ToString() << " to " << dst.ToString() << std::endl;
+//    std::cout << "copy " << src.ToString() << " to " << dst.ToString() << std::endl;
     DataCopy(dst.begin() + dst_off, dst.DeviceCurrent()->Id(),
              src.begin() + src_off, src.DeviceCurrent()->Id(),
              count * sizeof(T));

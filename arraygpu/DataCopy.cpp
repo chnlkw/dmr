@@ -7,7 +7,7 @@
 std::map<int, std::map<int, bool>> data_copy_p2p;
 
 void DataCopy(void *dst_ptr, int dst_device, const void *src_ptr, int src_device, size_t bytes) {
-    printf("data copy %d to %d\n", src_device, dst_device);
+//    printf("data copy %d to %d\n", src_device, dst_device);
     if (src_device < 0) {
         if (dst_device < 0) { //src CPU dst CPU
             memcpy(dst_ptr, src_ptr, bytes);

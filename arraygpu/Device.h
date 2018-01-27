@@ -62,7 +62,7 @@ class Device {
     static DevicePtr cpu;
 public:
     static DevicePtr Current() {
-        printf("current device = %d\n", current->Id());
+//        printf("current device = %d\n", current->Id());
         return current;
     }
 

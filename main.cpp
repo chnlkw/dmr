@@ -164,11 +164,11 @@ int main() {
     }
 
 #if 1
-    int N = 8;
+    int N = 4;
 //    DMR<uint32_t> dmr(N, M);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 1000000; i++) {
         uint32_t k = dis(gen);
         uint32_t v = dis(gen);
         keys[i % N].push_back(k);
@@ -188,7 +188,7 @@ int main() {
     printf("Shufflevalues\n");
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
     printf("Shufflevalues ok\n");
-    Device::UseCPU();
+//    Device::UseCPU();
 #else
     auto result = dmr.ShuffleValues<uint32_t>(values);
 #endif
@@ -198,7 +198,7 @@ int main() {
         auto &keys = dmr.Keys(i);
         auto &offs = dmr.Offs(i);
         auto &values = result[i];
-        values.Use(Device::Current());
+        values.Use(Device::CpuDevice());
         for (size_t i = 0; i < keys.size(); i++) {
             auto k = keys[i];
             if (exist_keys.count(k)) {
