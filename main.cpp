@@ -4,6 +4,7 @@
 #include <map>
 #include <functional>
 #include <set>
+#include <clock.h>
 
 #include "All.h"
 #include "dmr.h"
@@ -11,7 +12,7 @@
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-std::uniform_int_distribution<uint32_t> dis(0, 9);
+std::uniform_int_distribution<uint32_t> dis(0, 1000);
 std::map<int, int> a;
 
 auto print = [](auto &x) { std::cout << " " << x; };
@@ -188,6 +189,17 @@ int main() {
     printf("Shufflevalues\n");
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
     printf("Shufflevalues ok\n");
+    for (int i = 0; i < 5; i++) {
+        Clock clk;
+        auto r = dmr2.ShuffleValues<uint32_t>(d_values);
+        size_t sum = 0;
+        for (auto &x : r) {
+            sum += x.size() * sizeof(int);
+        }
+        double t = clk.timeElapsed();
+        double speed = sum / t / (1LU << 30);
+        printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
+    }
 //    Device::UseCPU();
 #else
     auto result = dmr.ShuffleValues<uint32_t>(values);
