@@ -13,44 +13,47 @@
 class ArrayBase {
 protected:
     AllocatorPtr allocator_;
+    int device_;
     size_t bytes_;
     void *ptr_;
-    int device_;
     bool owned_;
+
+    void allocate(size_t bytes) {
+        bytes_ = bytes;
+        if (bytes) {
+            owned_ = true;
+            ptr_ = allocator_->Alloc(bytes);
+        } else {
+            owned_ = false;
+            ptr_ = nullptr;
+        }
+    }
 
 public:
 
     ArrayBase(size_t bytes)
             : allocator_(Device::Current()->GetAllocator()),
-              ptr_(allocator_->Alloc(bytes)),
-              bytes_(bytes),
-              device_(Device::Current()->Id()),
-              owned_(true) {
+              device_(Device::Current()->Id()) {
+        allocate(bytes);
     }
 
     ArrayBase(AllocatorPtr allocator, int device, size_t bytes)
             : allocator_(allocator),
-              ptr_(allocator->Alloc(bytes)),
-              bytes_(bytes),
-              device_(device),
-              owned_(true) {
+              device_(device) {
+        allocate(bytes);
     }
 
     ArrayBase(const ArrayBase &that) :
             allocator_(Device::Current()->GetAllocator()),
-            bytes_(that.bytes_),
-            ptr_(allocator_->Alloc(that.bytes_)),
-            device_(Device::Current()->Id()),
-            owned_(true) {
+            device_(Device::Current()->Id()) {
+        allocate(that.bytes_);
         CopyFrom(that);
     }
 
     ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
             allocator_(Device::Current()->GetAllocator()),
-            bytes_(bytes),
-            ptr_(allocator_->Alloc(bytes)),
-            device_(Device::Current()->Id()),
-            owned_(true) {
+            device_(Device::Current()->Id()) {
+        allocate(bytes);
         DataCopy(this->ptr_, this->device_, ptr, -1, this->bytes_);
     }
 
@@ -162,18 +165,19 @@ public:
         return reinterpret_cast<const T *>(ptr_);
     }
 
-    T* begin() {
+    T *begin() {
         return reinterpret_cast<T *>(ptr_);
     }
 
-    const T* begin() const {
+    const T *begin() const {
         return reinterpret_cast<const T *>(ptr_);
     }
 
-    T* end() {
+    T *end() {
         return begin() + count_;
     }
-    const T* end() const {
+
+    const T *end() const {
         return begin() + count_;
     }
 

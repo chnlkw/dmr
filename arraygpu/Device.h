@@ -61,9 +61,13 @@ class Device {
     static DevicePtr current;
     static DevicePtr cpu;
 public:
-    static DevicePtr Current() { return current; }
+    static DevicePtr Current() {
+        printf("current device = %d\n", current->Id());
+        return current;
+    }
 
     static DevicePtr UseCPU() { return current = cpu; }
+    static DevicePtr CpuDevice() { return cpu; }
 
     static void Use(DevicePtr dev) {
         current = dev;
@@ -74,6 +78,20 @@ public:
         CUDA_CALL(cudaGetDeviceCount, &count);
         return count;
     }
+
 };
+
+template <class V>
+DevicePtr GetDevice(const V& v);
+
+template <class T>
+DevicePtr GetDevice(const std::vector<T>& v) {
+    return Device::CpuDevice();
+}
+
+template <class T>
+DevicePtr GetDevice(const Data<T>& v) {
+    return v.DeviceCurrent();
+}
 
 #endif //DMR_DEVICE_H

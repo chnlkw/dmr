@@ -46,7 +46,6 @@ void ShuffleByIdx(DevicePtr device, std::vector<T> &dst, const std::vector<T> &s
     for (size_t i = 0; i < src.size(); i++) {
         dst[i] = src[idx[i]];
     }
-
 }
 
 template<class T, class TOff>
@@ -60,7 +59,7 @@ void ShuffleByIdx(DevicePtr device, Data<T> &dst, const Data<T> &src, const Data
 
 template<class V1, class V2, class V3>
 void ShuffleByIdx(V1 &dst, const V2 &src, const V3 &idx) {
-    ShuffleByIdx(Device::Current(), dst, src, idx);
+    ShuffleByIdx(GetDevice(dst), dst, src, idx);
 };
 
 template<class V>
@@ -78,7 +77,7 @@ Array<T> Renew(const Array<T> &in, size_t count) {
 
 template<class T>
 Data<T> Renew(const Data<T> &in, size_t count) {
-    return Data<T>(count);
+    return Data<T>(count, in.DeviceCurrent());
 }
 
 template<class V>
@@ -92,6 +91,7 @@ void Copy(const std::vector<T> &src, size_t src_off, std::vector<T> &dst, size_t
 
 template<class T>
 void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size_t count) {
+    std::cout << "copy " << src.ToString() << " to " << dst.ToString() << std::endl;
     DataCopy(dst.begin() + dst_off, dst.DeviceCurrent()->Id(),
              src.begin() + src_off, src.DeviceCurrent()->Id(),
              count * sizeof(T));

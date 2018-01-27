@@ -97,6 +97,7 @@ public:
     }
 
     DevicePtr DeviceCurrent() const {
+        printf("DeviceCurrent = %d\n", cur_device_->Id());
         return cur_device_;
     }
 
@@ -116,10 +117,16 @@ public:
 
     const T &operator[](size_t i) const { return beg_[i]; }
 
+    std::string ToString() const {
+        std::ostringstream os;
+        os << "Data(" << "count=" << count_ << ", dev=" << cur_device_->Id() << "[" << beg_ << "," << end() << "])";
+        return os.str();
+    }
+
 private:
 
     void SetPointers(DevicePtr device) const {
-        beg_ = (T *) GetFrom(Device::Current())->data();
+        beg_ = (T *) GetFrom(device)->data();
         end_ = beg_ + count_;
         cur_device_ = device;
     }
@@ -139,6 +146,20 @@ private:
         return ArrayPtr<T>(new Array<T>(device->GetAllocator(), device->Id(), count));
     }
 };
+
+namespace std {
+template<class T>
+std::string to_string(const Data<T> &v) { return v.ToString(); }
+
+template<class T>
+std::string to_string(const std::vector<T> &v) {
+    std::ostringstream os;
+    os << "(" << v.size() << " : ";
+    for (auto x : v) os << x << ",";
+    os << ") ";
+    return os.str();
+}
+}
 
 struct data_constructor_t {
     template<class T, class ...Args>

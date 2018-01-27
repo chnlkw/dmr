@@ -132,11 +132,12 @@ int main() {
 
     std::vector<DevicePtr> gpu_devices;
     for (int i = 0; i < Device::NumGPUs(); i++) {
-        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
+//        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
+        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaAllocator>(i)));
     }
     CUDA_CHECK();
 
-    {
+    if (false) {
         std::vector<int> keys = {1, 3, 4, 2, 5};
         DMR<int, data_constructor_t> dmr1(keys);
         Data<float> values(keys.size());
@@ -163,7 +164,7 @@ int main() {
     }
 
 #if 1
-    int N = 10;
+    int N = 8;
 //    DMR<uint32_t> dmr(N, M);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
@@ -184,7 +185,9 @@ int main() {
         d_values.emplace_back(values[i]);
     }
 
+    printf("Shufflevalues\n");
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
+    printf("Shufflevalues ok\n");
     Device::UseCPU();
 #else
     auto result = dmr.ShuffleValues<uint32_t>(values);
