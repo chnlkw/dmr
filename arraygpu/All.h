@@ -10,8 +10,8 @@
 #include "Allocator.h"
 #include "DataCopy.h"
 #include "Array.h"
-#include "Engine.h"
 #include "Data.h"
 #include "Kernels.h"
+#include "Engine.h"
 
 #endif //LDA_ALL_H

@@ -129,7 +129,7 @@ public:
 //    std::cout << view::all(pos) << '\n';
 //}
 
-int main() {
+void test_dmr() {
 
     std::vector<DevicePtr> gpu_devices;
     for (int i = 0; i < Device::NumGPUs(); i++) {
@@ -145,7 +145,7 @@ int main() {
     }
     Device::UseCPU();
 
-    if (false) {
+    if (true) {
         std::vector<int> keys = {1, 3, 4, 2, 5};
         DMR<int, data_constructor_t> dmr1(keys);
         Data<float> values(keys.size());
@@ -238,5 +238,85 @@ int main() {
     }
 #endif
     std::cout << "OK" << std::endl;
-    return 0;
+}
+
+template<class T>
+class TaskAdd : public TaskBase {
+    DataPtr<T> a_, b_, c_;
+public:
+    TaskAdd(DataPtr<T> a, DataPtr<T> b, DataPtr<T> c) :
+            TaskBase(),
+            a_(a), b_(b), c_(c) {
+        assert(a->size() == b->size());
+        assert(a->size() == c->size());
+        AddInput(a);
+        AddInput(b);
+        AddOutput(c);
+    }
+
+    virtual void Run(CPUWorker *cpu) override {
+        auto &a = *a_;
+        auto &b = *b_;
+        auto &c = *c_;
+        for (int i = 0; i < c.size(); i++) {
+            c[i] = a[i] + b[i];
+        }
+    }
+
+    virtual void Run(GPUWorker *gpu) override {
+        std::cout << "Run on GPU " << std::endl;
+        gpu_add(c_->begin(), a_->begin(), b_->begin(), c_->size(), gpu->Stream());
+    }
+};
+
+void test_engine() {
+//    std::vector<GPUWorker> gpu_workers;
+//    for (int i = 0; i < Device::NumGPUs(); i++)
+//        gpu_workers.emplace_back(i);
+//
+//    CPUWorker cpu_worker;
+
+    std::vector<DevicePtr> gpu_devices;
+    std::vector<WorkerPtr> gpu_workers;
+    for (int i = 0; i < Device::NumGPUs(); i++) {
+        auto d = std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30));
+        gpu_devices.push_back(d);
+        gpu_workers.emplace_back(new GPUWorker(d));
+    }
+
+    Engine engine({gpu_workers.begin(), gpu_workers.end()});
+
+    auto print = [](const auto &arr) {
+        for (int i = 0; i < arr.size(); i++) {
+            printf("%d ", arr[i]);
+        }
+        printf("\n");
+    };
+
+    auto d1 = std::make_shared<Data<int>>(10);
+    auto d2 = std::make_shared<Data<int>>(d1->size());
+    for (int i = 0; i < d1->size(); i++) {
+        (*d1)[i] = i;
+        (*d2)[i] = i * i;
+    }
+    auto d3 = std::make_shared<Data<int>>(d1->size());
+
+//    auto t1 = std::make_shared<TaskAdd<int>>(d1, d2, d3);
+//    engine.AddTask(t1);
+    engine.AddTask<TaskAdd<int>>(d1, d2, d3);
+
+    auto d4 = std::make_shared<Data<int>>(d1->size());
+    auto t2 = std::make_shared<TaskAdd<int>>(d2, d3, d4);
+
+    engine.AddTask(t2);
+
+    while (engine.Tick());
+    print(*d3);
+    print(*d4);
+
+}
+
+int main() {
+//    test_dmr();
+    test_engine();
 }

@@ -9,6 +9,109 @@
 #include <deque>
 #include <map>
 
+#include "Worker.h"
+
+class Engine {
+    struct Node {
+        size_t in_degree = 0;
+        std::vector<TaskPtr> next_tasks_;
+    };
+    std::map<TaskPtr, Node> tasks_;
+
+    struct DataNode {
+        TaskPtr writer;
+        std::vector<TaskPtr> readers;
+    };
+    std::map<DataBasePtr, DataNode> data_;
+    std::set<WorkerPtr> workers_;
+    std::vector<TaskPtr> ready_tasks_;
+
+public:
+    Engine(std::set<WorkerPtr> workers) :
+            workers_(std::move(workers)) {
+    }
+
+    TaskBase& AddTask(TaskPtr task) {
+        for (auto d : task->GetInputs()) {
+            DataNode &data = data_[d];
+            if (data.writer)
+                AddEdge(data.writer, task);
+            data.readers.push_back(task);
+        }
+        for (auto d : task->GetOutputs()) {
+            DataNode &data = data_[d];
+            if (data.writer && data.readers.empty()) {
+                fprintf(stderr, "Data written twice but no readers between them\n");
+            }
+            for (auto r : data.readers)
+                AddEdge(r, task);
+            data.readers.clear();
+            data.writer = task;
+        }
+        CheckTaskReady(task);
+        return *task;
+    }
+
+    template<class Task, class... Args>
+    TaskBase& AddTask(Args... args) {
+        auto t = std::make_shared<Task>(args...);
+        return AddTask(t);
+    };
+
+    bool Tick() {
+        std::cout << "Tick " << std::endl;
+        size_t empty_workers_ = 0;
+        for (auto w : workers_) {
+            std::cout << "workers " << w.get() << std::endl;
+            if (w->Empty()) {
+                empty_workers_++;
+                continue;
+            }
+            auto tasks = w->GetCompleteTasks();
+            for (auto &t : tasks) {
+                FinishTask(t);
+            }
+        }
+        if (ready_tasks_.empty() && empty_workers_ == workers_.size()) {
+            return false; // Finish
+        }
+        for (auto t : ready_tasks_) {
+            ChooseWorker(t)->RunTask(t);
+        }
+        ready_tasks_.clear();
+        return true;
+    }
+
+    WorkerPtr ChooseWorker(TaskPtr t) {
+        if (t->worker_prefered_.size()) {
+            return *(t->worker_prefered_.begin());
+        } else {
+            return *workers_.begin();
+        }
+    }
+
+private:
+    void AddEdge(TaskPtr src, TaskPtr dst) {
+        tasks_[src].next_tasks_.push_back(dst);
+        tasks_[dst].in_degree++;
+    }
+
+    void CheckTaskReady(TaskPtr task) {
+        if (tasks_[task].in_degree == 0)
+            ready_tasks_.push_back(task);
+    }
+
+    void FinishTask(TaskPtr task) {
+        for (auto t : tasks_[task].next_tasks_) {
+            --tasks_[t].in_degree;
+            CheckTaskReady(t);
+        }
+        tasks_.erase(task);
+    }
+};
+
+#if 0
+
 struct TaskContext {
     int pipeline_id = -1;
     int device = -1;
@@ -119,5 +222,7 @@ public:
 
     void Run();
 };
+
+#endif
 
 #endif //LDA_ENGINE_H

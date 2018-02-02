@@ -7,7 +7,17 @@
 
 #include "Array.h"
 
-class DataBase : public Node {
+class DataBase {
+    std::set<TaskBase *> depend_tasks_;
+public:
+    const std::set<TaskBase *> &DependTasks() const {
+        return depend_tasks_;
+    }
+
+    void UpdateByTask(TaskBase* t) {
+        depend_tasks_.clear();
+        depend_tasks_.insert(t);
+    }
 };
 
 template<class T>

@@ -11,49 +11,55 @@
 #include <queue>
 
 #include "defs.h"
+#include "Data.h"
 
-class Node {
-    int id_;
-    std::set<NodePtr> depends_;
-    std::set<NodePtr> suffixs_;
+class TaskBase {
+    TaskBase(const TaskBase &) = delete;
 
-public:
-    Node(int id = 0) : id_(id) {
-    }
+    std::vector<DataBasePtr> inputs_;
+    std::vector<DataBasePtr> outputs_;
+    std::vector<DevicePtr> device_prefered_;
+    std::set<WorkerPtr> worker_prefered_;
 
-    virtual ~Node() {}
-
-    void AddDependence(NodePtr ptr) {
-        depends_.insert(ptr);
-    }
-};
-
-class TaskBase : public Node {
-//    std::list<DataPtr> inputs_, outputs_;
-public:
-    virtual void Run(DevicePtr device) = 0;
-};
-
-class Engine {
-    std::set<DevicePtr> devices_;
-    std::set<TaskPtr> dependent_tasks_;
+    friend class Engine;
 
 public:
-    Engine() {}
+    virtual ~TaskBase() {}
 
-    void AddDevice(DevicePtr device) {
-        devices_.insert(device);
+    template<class Worker>
+    void Run(Worker *t) {
+        RunWorker(t);
     }
 
-    void AddTask(TaskPtr task) {
-        dependent_tasks_.insert(task);
+    const std::vector<DataBasePtr> &GetInputs() const {
+        return inputs_;
     }
 
-    void WaitTask(TaskPtr task);
+    const std::vector<DataBasePtr> &GetOutputs() const {
+        return outputs_;
+    }
 
-    void WaitAll();
+    TaskBase &Prefer(WorkerPtr w) {
+        worker_prefered_.insert(w);
+        return *this;
+    }
 
-    bool Tick();
+    virtual void Run(CPUWorker *) { throw std::runtime_error("not implemented on CPUWorker"); };
+
+    virtual void Run(GPUWorker *) { throw std::runtime_error("not implemented on GPUWorker"); };
+
+protected:
+
+    TaskBase() {}
+
+    void AddInput(DataBasePtr data) {
+        inputs_.push_back(data);
+    }
+
+    void AddOutput(DataBasePtr data) {
+        outputs_.push_back(data);
+    }
+
 };
 
 #endif //DMR_TASK_H
