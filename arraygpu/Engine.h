@@ -31,7 +31,7 @@ public:
             workers_(std::move(workers)) {
     }
 
-    TaskBase& AddTask(TaskPtr task) {
+    TaskBase &AddTask(TaskPtr task) {
         for (auto d : task->GetInputs()) {
             DataNode &data = data_[d];
             if (data.writer)
@@ -53,8 +53,8 @@ public:
     }
 
     template<class Task, class... Args>
-    TaskBase& AddTask(Args... args) {
-        auto t = std::make_shared<Task>(args...);
+    TaskBase &AddTask(Args... args) {
+        auto t = std::make_shared<Task>(*this, args...);
         return AddTask(t);
     };
 
@@ -106,9 +106,28 @@ private:
             --tasks_[t].in_degree;
             CheckTaskReady(t);
         }
+        task->Finish();
         tasks_.erase(task);
     }
 };
+
+void TaskBase::WaitFinish() {
+    while (!finished) {
+        if (!engine_.Tick()) {
+            throw std::runtime_error("Task unfinished, while engine ends");
+        }
+    }
+}
+
+void DataBase::Wait() {
+    // Wait all tasks finish
+    for (auto &s : states_) {
+        if (auto t = s.task.lock()) {
+            t->WaitFinish();
+        }
+    }
+    states_.clear();
+}
 
 #if 0
 

@@ -5,10 +5,11 @@
 #include <functional>
 #include <set>
 #include <clock.h>
+#include <All.h>
 
-#include "All.h"
 #include "dmr.h"
 #include "PartitionedDMR.h"
+#include "All.h"
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
@@ -244,8 +245,8 @@ template<class T>
 class TaskAdd : public TaskBase {
     DataPtr<T> a_, b_, c_;
 public:
-    TaskAdd(DataPtr<T> a, DataPtr<T> b, DataPtr<T> c) :
-            TaskBase(),
+    TaskAdd(Engine& engine, DataPtr<T> a, DataPtr<T> b, DataPtr<T> c) :
+            TaskBase(engine),
             a_(a), b_(b), c_(c) {
         assert(a->size() == b->size());
         assert(a->size() == c->size());
@@ -265,7 +266,10 @@ public:
 
     virtual void Run(GPUWorker *gpu) override {
         std::cout << "Run on GPU " << std::endl;
-        gpu_add(c_->begin(), a_->begin(), b_->begin(), c_->size(), gpu->Stream());
+        const T* a = a_->ReadBy(this, gpu->Device(), gpu->Stream());
+        const T* b = b_->ReadBy(this, gpu->Device(), gpu->Stream());
+        T* c = c_->WriteBy(this, gpu->Device(), gpu->Stream());
+        gpu_add(c, a, b, c_->size(), gpu->Stream());
     }
 };
 
@@ -306,12 +310,19 @@ void test_engine() {
     engine.AddTask<TaskAdd<int>>(d1, d2, d3);
 
     auto d4 = std::make_shared<Data<int>>(d1->size());
-    auto t2 = std::make_shared<TaskAdd<int>>(d2, d3, d4);
+    auto t2 = std::make_shared<TaskAdd<int>>(engine, d2, d3, d4);
 
     engine.AddTask(t2);
 
-    while (engine.Tick());
+//    while (engine.Tick());
+    t2->WaitFinish();
+    print(*d1);
+    print(*d2);
+    d3->ReadBy(nullptr, Device::CpuDevice(), 0);
+    CUDA_CHECK();
     print(*d3);
+    d4->ReadBy(nullptr, Device::CpuDevice(), 0);
+    CUDA_CHECK();
     print(*d4);
 
 }

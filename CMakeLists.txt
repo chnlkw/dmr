@@ -16,11 +16,13 @@ endif ()
 
 include_directories(arraygpu)
 
-cuda_add_executable(dmr main.cpp arraygpu/Kernels.cu)
 
-aux_source_directory(arraygpu common_src)
+aux_source_directory(arraygpu lib_src)
+MESSAGE("lib_src = ${lib_src}")
 
-cuda_add_library(common ${common_src})
-MESSAGE("common = ${common_src}")
+add_library(dmr ${lib_src})
+cuda_add_library(dmr_kernel arraygpu/Kernels.cu)
 
-target_link_libraries(dmr common)
+add_executable(main main.cpp)
+
+target_link_libraries(main dmr dmr_kernel)

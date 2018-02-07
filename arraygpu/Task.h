@@ -20,6 +20,8 @@ class TaskBase {
     std::vector<DataBasePtr> outputs_;
     std::vector<DevicePtr> device_prefered_;
     std::set<WorkerPtr> worker_prefered_;
+    bool finished = false;
+    Engine &engine_;
 
     friend class Engine;
 
@@ -48,9 +50,10 @@ public:
 
     virtual void Run(GPUWorker *) { throw std::runtime_error("not implemented on GPUWorker"); };
 
-protected:
+    void WaitFinish();
 
-    TaskBase() {}
+protected:
+    TaskBase(Engine &engine) : engine_(engine) {}
 
     void AddInput(DataBasePtr data) {
         inputs_.push_back(data);
@@ -58,6 +61,10 @@ protected:
 
     void AddOutput(DataBasePtr data) {
         outputs_.push_back(data);
+    }
+
+    void Finish() {
+        finished = true;
     }
 
 };

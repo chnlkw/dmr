@@ -8,38 +8,85 @@
 #include "Array.h"
 
 class DataBase {
-    std::set<TaskBase *> depend_tasks_;
+    struct State {
+        std::weak_ptr<TaskBase> task;
+        size_t bytes = 0;
+        std::map<DevicePtr, ArrayBasePtr> replicas;
+        std::map<DevicePtr, ArrayBasePtr> invalids;
+
+        ArrayBasePtr ReadAt(const DevicePtr &dev, cudaStream_t stream);
+
+        ArrayBasePtr
+        WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old, size_t cur_bytes);
+    };
+
+    mutable State last_state_;
+    mutable std::deque<State> states_;
+
+    void *data_ = nullptr;
+
 public:
-    const std::set<TaskBase *> &DependTasks() const {
-        return depend_tasks_;
+
+    explicit DataBase(size_t bytes = 0) {
+        last_state_.bytes = bytes;
     }
 
-    void UpdateByTask(TaskBase* t) {
-        depend_tasks_.clear();
-        depend_tasks_.insert(t);
+    void ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
+
+    void *Read(DevicePtr dev) {
+        Wait();
+        data_ = last_state_.ReadAt(dev, 0)->data();
+        CUDA_CALL(cudaStreamSynchronize, 0);
+        return data_;
     }
+
+    void *Write(DevicePtr dev, size_t bytes) {
+        Wait();
+        data_ = last_state_.WriteAt(dev, 0, false, bytes)->data();
+        CUDA_CALL(cudaStreamSynchronize, 0);
+        return data_;
+    }
+
+    void *Write(DevicePtr dev) { return Write(dev, last_state_.bytes); }
+
+    void WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes_);
+
+    void WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
+
+    void ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
+
+    void *ReadWrite(DevicePtr dev) {
+        data_ = last_state_.WriteAt(dev, 0, true, last_state_.bytes)->data();
+        CUDA_CALL(cudaStreamSynchronize, 0);
+        return data_;
+    }
+
+    void Wait();
 };
 
 template<class T>
 class Data : public DataBase {
 private:
-    size_t count_;
-    mutable DevicePtr cur_device_;
-    mutable T *beg_, *end_;
-    mutable std::map<DevicePtr, ArrayPtr<T>> replicas_;
-    mutable std::map<DevicePtr, ArrayPtr<T>> invalids_;
+//    size_t count_;
+//    mutable DevicePtr cur_device_;
+//    mutable DevicePtr master_device_;
+//    mutable T *beg_, *end_;
+//    mutable std::map<DevicePtr, ArrayPtr<T>> replicas_;
+//    mutable std::map<DevicePtr, ArrayPtr<T>> invalids_;
+
+    //add policy
 
 public:
 
     using value_type = T;
 
-    explicit Data() :
-            count_(0), beg_(nullptr), end_(nullptr) {
-    }
+    explicit Data() {}
+
 
     Data(size_t count, DevicePtr device = Device::Current()) :
             count_(count), beg_(nullptr), end_(nullptr) {
-        replicas_[device] = CreateArrayAt(device, count_);
+//        replicas_[device] = CreateArrayAt(device, count_);
+        last_state_.WriteAt(device, count);
         SetPointers(device);
     }
 
@@ -136,7 +183,8 @@ public:
 private:
 
     void SetPointers(DevicePtr device) const {
-        beg_ = (T *) GetFrom(device)->data();
+//        beg_ = (T *) GetFrom(device)->data();
+        beg_ = last_state_.replicas[device]->data();
         end_ = beg_ + count_;
         cur_device_ = device;
     }

@@ -18,110 +18,54 @@ protected:
     void *ptr_;
     bool owned_;
 
-    void allocate(size_t bytes) {
-        bytes_ = bytes;
-        if (bytes) {
-            owned_ = true;
-            ptr_ = allocator_->Alloc(bytes);
-        } else {
-            owned_ = false;
-            ptr_ = nullptr;
-        }
-    }
+    void ReAllocate(size_t bytes);
+
+    void Free();
 
 public:
 
-    ArrayBase(size_t bytes)
-            : allocator_(Device::Current()->GetAllocator()),
-              device_(Device::Current()->Id()) {
-        allocate(bytes);
-    }
+    explicit ArrayBase(size_t bytes);
 
-    ArrayBase(AllocatorPtr allocator, int device, size_t bytes)
-            : allocator_(allocator),
-              device_(device) {
-        allocate(bytes);
-    }
+    ArrayBase(AllocatorPtr allocator, int device, size_t bytes);
 
-    ArrayBase(const ArrayBase &that) :
-            allocator_(Device::Current()->GetAllocator()),
-            device_(Device::Current()->Id()) {
-        allocate(that.bytes_);
-        CopyFrom(that);
-    }
+    ArrayBase(const ArrayBase &that);
 
-    ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
-            allocator_(Device::Current()->GetAllocator()),
-            device_(Device::Current()->Id()) {
-        allocate(bytes);
-        DataCopy(this->ptr_, this->device_, ptr, -1, this->bytes_);
-    }
+    ArrayBase(void *ptr, size_t bytes);
 
-    ArrayBase(ArrayBase &&that) :
-            allocator_(that.allocator_),
-            bytes_(that.bytes_),
-            ptr_(that.ptr_),
-            device_(that.device_),
-            owned_(that.owned_) {
-        that.ptr_ = nullptr;
-        that.owned_ = false;
-    }
+    ArrayBase(ArrayBase &&that);
 
-    ArrayBase(const ArrayBase &that, size_t off, size_t bytes)
-            : allocator_(nullptr),
-              bytes_(bytes),
-              ptr_((char *) that.ptr_ + off),
-              device_(that.device_),
-              owned_(false) {
-    }
+    ArrayBase(const ArrayBase &that, size_t off, size_t bytes);
 
-    ~ArrayBase() {
-        if (owned_) {
-            assert(ptr_ != nullptr);
-            allocator_->Free(ptr_);
-            ptr_ = nullptr;
-            owned_ = false;
-        }
-    }
+    ~ArrayBase();
 
-    ArrayBase Renew(size_t bytes) const {
-        return {allocator_, device_, bytes};
-    }
+//    ArrayBase Renew(size_t bytes) const {
+//        return {allocator_, device_, bytes};
+//    }
 
-    void CopyFrom(const ArrayBase &that) {
-        assert(this->bytes_ == that.bytes_);
-        DataCopy(this->ptr_, this->device_, that.ptr_, that.device_, this->bytes_);
-    }
+    void CopyFrom(const ArrayBase &that, bool check_size_equal = true);
 
-    void CopyFromAsync(const ArrayBase &that, cudaStream_t stream) {
-        assert(this->bytes_ == that.bytes_);
-        DataCopyAsync(this->ptr_, this->device_, that.ptr_, that.device_, this->bytes_, stream);
-    }
+    void CopyFromAsync(const ArrayBase &that, cudaStream_t stream, bool check_size_equal = true);
 
-    int GetDevice() const {
-        return device_;
-    }
+    int GetDevice() const { return device_; }
 
-    size_t GetBytes() const {
-        return bytes_;
-    }
+    size_t GetBytes() const { return bytes_; }
+
+    void *data() const { return ptr_; }
 };
 
 template<class T>
 class Array : public ArrayBase {
-    size_t count_;
+//    size_t count_;
 public:
 
     using value_type = T;
 
     explicit Array(size_t count = 0) :
-            ArrayBase(count * sizeof(T)),
-            count_(count) {
+            ArrayBase(count * sizeof(T)) {
     }
 
     Array(AllocatorPtr allocator, int device, size_t count = 0)
-            : ArrayBase(allocator, device, count * sizeof(T)),
-              count_(count) {
+            : ArrayBase(allocator, device, count * sizeof(T)) {
     }
 
 //    Array(AllocatorBase *allocator, size_t count) : // need allocated
@@ -135,9 +79,7 @@ public:
 //    }
 
     Array(Array<T> &&that) :
-            ArrayBase(std::move(that)),
-            count_(that.count_) {
-        that.count_ = 0;
+            ArrayBase(std::move(that)) {
     }
 
 //    Array &operator=(Array<T> &&that) {
@@ -148,13 +90,11 @@ public:
 //    }
 
     Array(const std::vector<T> &that) :
-            ArrayBase((void *) that.data(), that.size() * sizeof(T)),
-            count_(that.size()) {
+            ArrayBase((void *) that.data(), that.size() * sizeof(T)) {
     }
 
     Array(const Array<T> &that) :
-            ArrayBase(that),
-            count_(that.count_) {
+            ArrayBase(that) {
     }
 
     T *data() {
@@ -174,19 +114,23 @@ public:
     }
 
     T *end() {
-        return begin() + count_;
+        return begin() + Count();
     }
 
     const T *end() const {
-        return begin() + count_;
+        return begin() + Count();
+    }
+
+    size_t Count() const {
+        return GetBytes() / sizeof(T);
     }
 
     size_t size() const {
-        return count_;
+        return Count();
     }
 
     Array<T> CopyTo(int device) {
-        Array<T> that(allocator_, count_, device);
+        Array<T> that(allocator_, Count(), device);
         that.CopyFrom(*this);
         return that;
     }
@@ -196,7 +140,7 @@ public:
     }
 
     Array<T> Slice(size_t beg, size_t end) {
-        assert(beg < end && end <= count_);
+        assert(beg < end && end <= Count());
         T *ptr = this->data() + beg;
         size_t count = end - beg;
         return Array<T>(allocator_, ptr, count, device_);

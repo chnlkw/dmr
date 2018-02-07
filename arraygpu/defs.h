@@ -31,6 +31,9 @@ class CPUWorker;
 
 class GPUWorker;
 
+class Engine;
+
+using ArrayBasePtr = std::shared_ptr<ArrayBase>;
 template<class T>
 using ArrayPtr = std::shared_ptr<Array<T>>;
 using AllocatorPtr = std::shared_ptr<AllocatorBase>;

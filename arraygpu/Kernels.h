@@ -11,7 +11,7 @@ template<class T, class TOff>
 extern void shuffle_by_idx_gpu(T *dst, const T *src, const TOff *idx, size_t size);
 
 template<class T>
-extern void gpu_add(T *c, T *a, T *b, size_t size, cudaStream_t stream); // c[i] = a[i] + b[i]
+extern void gpu_add(T *c, const T *a, const T *b, size_t size, cudaStream_t stream); // c[i] = a[i] + b[i]
 
 
 #endif //DMR_KERNELS_H

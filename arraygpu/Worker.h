@@ -77,6 +77,9 @@ private:
         } else {
             cudaEventCreate(&e);
         }
+
+        for (DataBasePtr d : t->GetInputs())
+
         t->Run(this);
         cudaEventRecord(e, stream_);
         queue_.emplace_back(e, t);
