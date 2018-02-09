@@ -48,30 +48,30 @@ ArrayBasePtr DataBase::State::WriteAt(const DevicePtr &dev, cudaStream_t stream,
     return replicas[dev];
 }
 
-void DataBase::ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+ArrayBasePtr DataBase::ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
     last_state_.ReadAt(dev, stream);
     ArrayBasePtr arr = last_state_.WriteAt(dev, stream, true, last_state_.bytes);
     last_state_.task = task;
     states_.push_back(last_state_);
-    data_ = arr->data();
+    return arr;
 }
 
-void DataBase::ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+ArrayBasePtr DataBase::ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
     ArrayBasePtr arr = last_state_.ReadAt(dev, stream);
     last_state_.task = task;
     states_.push_back(last_state_);
-    data_ = arr->data();
+    return arr;
 }
 
-void DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
+ArrayBasePtr DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
     assert(bytes > 0);
     last_state_.task = task;
     ArrayBasePtr arr = last_state_.WriteAt(dev, stream, false, bytes);
     states_.push_back(last_state_);
-    data_ = arr->data();
+    return arr;
 }
 
-void DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-    WriteAsync(task, dev, stream, last_state_.bytes);
+ArrayBasePtr DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+    return WriteAsync(task, dev, stream, last_state_.bytes);
 }
 

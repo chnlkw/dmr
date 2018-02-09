@@ -29,6 +29,8 @@ class Engine {
 public:
     Engine(std::set<WorkerPtr> workers) :
             workers_(std::move(workers)) {
+        printf("engine's worker id = %d\n", (*workers_.begin())->Device()->Id());
+
     }
 
     TaskBase &AddTask(TaskPtr task) {
@@ -76,18 +78,22 @@ public:
             return false; // Finish
         }
         for (auto t : ready_tasks_) {
-            ChooseWorker(t)->RunTask(t);
+            WorkerPtr w = ChooseWorker(t);
+            w->RunTask(t);
         }
         ready_tasks_.clear();
         return true;
     }
 
     WorkerPtr ChooseWorker(TaskPtr t) {
+        WorkerPtr w;
         if (t->worker_prefered_.size()) {
-            return *(t->worker_prefered_.begin());
+            w= *(t->worker_prefered_.begin());
         } else {
-            return *workers_.begin();
+            w= *workers_.begin();
         }
+        printf("choose worker id = %d\n", w->Device()->Id());
+        return std::move(w);
     }
 
 private:

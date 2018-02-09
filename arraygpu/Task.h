@@ -13,7 +13,7 @@
 #include "defs.h"
 #include "Data.h"
 
-class TaskBase {
+class TaskBase : public std::enable_shared_from_this<TaskBase> {
     TaskBase(const TaskBase &) = delete;
 
     std::vector<DataBasePtr> inputs_;

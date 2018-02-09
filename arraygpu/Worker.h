@@ -15,6 +15,8 @@ public:
     virtual std::vector<TaskPtr> GetCompleteTasks() = 0;
 
     virtual bool Empty() const = 0;
+
+    virtual DevicePtr Device() const = 0;
 };
 
 class CPUWorker : public WorkerBase {
@@ -22,13 +24,13 @@ class CPUWorker : public WorkerBase {
 public:
     CPUWorker() {}
 
-    void RunTask(TaskPtr t) {
+    void RunTask(TaskPtr t) override {
         tasks_.push_back(t);
     }
 
-    bool Empty() const { return tasks_.empty(); }
+    bool Empty() const override { return tasks_.empty(); }
 
-    std::vector<TaskPtr> GetCompleteTasks() {
+    std::vector<TaskPtr> GetCompleteTasks() override {
         std::vector<TaskPtr> ret;
         for (TaskPtr t : tasks_) {
             t->Run(this);
@@ -36,6 +38,10 @@ public:
         }
         tasks_.clear();
         return ret;
+    }
+
+    DevicePtr Device() const override {
+        return Device::Current();
     }
 
 };
@@ -50,6 +56,7 @@ class GPUWorker : public WorkerBase {
 public:
     GPUWorker(std::shared_ptr<GPUDevice> gpu) :
             gpu_(gpu) {
+        printf("gpu worker id = %d\n", gpu->Id());
         CUDA_CALL(cudaSetDevice, gpu->Id());
         CUDA_CALL(cudaStreamCreate, &stream_);
     }
@@ -62,7 +69,7 @@ public:
         return stream_;
     }
 
-    auto Device() const {
+    DevicePtr Device() const override {
         return gpu_;
     }
 
@@ -78,7 +85,10 @@ private:
             cudaEventCreate(&e);
         }
 
-        for (DataBasePtr d : t->GetInputs())
+//        for (DataBasePtr d : t->GetInputs())
+//            d->ReadAsync(t, gpu_, stream_);
+//        for (DataBasePtr d : t->GetOutputs())
+//            d->WriteAsync(t, gpu_, stream_);
 
         t->Run(this);
         cudaEventRecord(e, stream_);

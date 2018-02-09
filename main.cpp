@@ -5,11 +5,8 @@
 #include <functional>
 #include <set>
 #include <clock.h>
-#include <All.h>
 
-#include "dmr.h"
-#include "PartitionedDMR.h"
-#include "All.h"
+#include <All.h>
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
@@ -130,6 +127,7 @@ public:
 //    std::cout << view::all(pos) << '\n';
 //}
 
+/*
 void test_dmr() {
 
     std::vector<DevicePtr> gpu_devices;
@@ -157,7 +155,7 @@ void test_dmr() {
         auto d_val_out = dmr1.ShuffleValues<float>(values);
         CUDA_CHECK();
         Device::UseCPU();
-        d_val_out.Use(Device::Current());
+        d_val_out.Write(Device::Current());
         {
             auto &keys = dmr1.Keys();
             auto &offs = dmr1.Offs();
@@ -218,7 +216,7 @@ void test_dmr() {
         auto &keys = dmr.Keys(i);
         auto &offs = dmr.Offs(i);
         auto &values = result[i];
-        values.Use(Device::CpuDevice());
+        values.Read(Device::CpuDevice());
         for (size_t i = 0; i < keys.size(); i++) {
             auto k = keys[i];
             if (exist_keys.count(k)) {
@@ -240,6 +238,7 @@ void test_dmr() {
 #endif
     std::cout << "OK" << std::endl;
 }
+ */
 
 template<class T>
 class TaskAdd : public TaskBase {
@@ -256,20 +255,20 @@ public:
     }
 
     virtual void Run(CPUWorker *cpu) override {
-        auto &a = *a_;
-        auto &b = *b_;
-        auto &c = *c_;
-        for (int i = 0; i < c.size(); i++) {
+        T* a = a_->Read(cpu->Device())->data();
+        T* b = b_->Read(cpu->Device())->data();
+        T* c = c_->Write(cpu->Device())->data();
+        for (int i = 0; i < c_->size(); i++) {
             c[i] = a[i] + b[i];
         }
     }
 
     virtual void Run(GPUWorker *gpu) override {
-        std::cout << "Run on GPU " << std::endl;
-        const T* a = a_->ReadBy(this, gpu->Device(), gpu->Stream());
-        const T* b = b_->ReadBy(this, gpu->Device(), gpu->Stream());
-        T* c = c_->WriteBy(this, gpu->Device(), gpu->Stream());
-        gpu_add(c, a, b, c_->size(), gpu->Stream());
+        std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
+        const T* a = a_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
+        const T* b = b_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
+        T* c = c_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
+        gpu_add<T>(c, a, b, c_->size(), gpu->Stream());
     }
 };
 
@@ -284,13 +283,16 @@ void test_engine() {
     std::vector<WorkerPtr> gpu_workers;
     for (int i = 0; i < Device::NumGPUs(); i++) {
         auto d = std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30));
+        std::cout << d->Id() << std::endl;
         gpu_devices.push_back(d);
         gpu_workers.emplace_back(new GPUWorker(d));
+        printf("i=%d workerid = %d\n", i, gpu_workers.back()->Device()->Id());
     }
 
     Engine engine({gpu_workers.begin(), gpu_workers.end()});
 
     auto print = [](const auto &arr) {
+        printf("%p : \n", &arr[0]);
         for (int i = 0; i < arr.size(); i++) {
             printf("%d ", arr[i]);
         }
@@ -298,13 +300,17 @@ void test_engine() {
     };
 
     auto d1 = std::make_shared<Data<int>>(10);
+    ArrayPtr<int> a1 = d1->Read();
     auto d2 = std::make_shared<Data<int>>(d1->size());
+    ArrayPtr<int> a2 = d2->Read();
     for (int i = 0; i < d1->size(); i++) {
-        (*d1)[i] = i;
-        (*d2)[i] = i * i;
+        (*a1)[i] = i;
+        (*a2)[i] = i * i;
     }
     auto d3 = std::make_shared<Data<int>>(d1->size());
 
+    print(*a1);
+    print(*a2);
 //    auto t1 = std::make_shared<TaskAdd<int>>(d1, d2, d3);
 //    engine.AddTask(t1);
     engine.AddTask<TaskAdd<int>>(d1, d2, d3);
@@ -316,14 +322,14 @@ void test_engine() {
 
 //    while (engine.Tick());
     t2->WaitFinish();
-    print(*d1);
-    print(*d2);
-    d3->ReadBy(nullptr, Device::CpuDevice(), 0);
+    print(*a1);
+    print(*a2);
+    auto a3 = d3->Read(Device::CpuDevice());
     CUDA_CHECK();
-    print(*d3);
-    d4->ReadBy(nullptr, Device::CpuDevice(), 0);
+    print(*a3);
+    auto a4 = d4->Read(Device::CpuDevice());
     CUDA_CHECK();
-    print(*d4);
+    print(*a4);
 
 }
 

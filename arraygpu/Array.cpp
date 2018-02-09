@@ -66,6 +66,7 @@ void ArrayBase::ReAllocate(size_t bytes) {
         owned_ = false;
         ptr_ = nullptr;
     }
+    printf("reallocate ptr %p bytes = %lu\n", ptr_, bytes);
 }
 
 void ArrayBase::CopyFrom(const ArrayBase &that, bool check_size_equal) {
