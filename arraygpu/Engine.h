@@ -28,46 +28,17 @@ class Engine {
 
     static std::unique_ptr<Engine> engine;
 
-    Engine(std::set<WorkerPtr> workers) :
-            workers_(std::move(workers)) {
-    }
+    explicit Engine(std::set<WorkerPtr> workers);
 
 public:
 
-    static void Create(std::set<WorkerPtr> workers) {
-        engine.reset(new Engine(std::move(workers)));
-    }
+    static void Create(std::set<WorkerPtr> workers);
 
-    static void Finish() {
-        engine.reset();
-    }
+    static void Finish();
 
-    static Engine &Get() {
-        if (!engine)
-            throw std::runtime_error("Engine::Create() must be called before ::Get()");
-        return *engine;
-    }
+    static Engine &Get();
 
-    TaskBase &AddTask(TaskPtr task) {
-        for (auto d : task->GetInputs()) {
-            DataNode &data = data_[d];
-            if (data.writer)
-                AddEdge(data.writer, task);
-            data.readers.push_back(task);
-        }
-        for (auto d : task->GetOutputs()) {
-            DataNode &data = data_[d];
-            if (data.writer && data.readers.empty()) {
-                fprintf(stderr, "Data written twice but no readers between them\n");
-            }
-            for (auto r : data.readers)
-                AddEdge(r, task);
-            data.readers.clear();
-            data.writer = task;
-        }
-        CheckTaskReady(task);
-        return *task;
-    }
+    TaskBase &AddTask(TaskPtr task);
 
     template<class Task, class... Args>
     TaskBase &AddTask(Args... args) {
@@ -75,61 +46,16 @@ public:
         return AddTask(t);
     };
 
-    bool Tick() {
-        std::cout << "Tick " << std::endl;
-        size_t empty_workers_ = 0;
-        for (auto w : workers_) {
-            std::cout << "workers " << w.get() << std::endl;
-            if (w->Empty()) {
-                empty_workers_++;
-                continue;
-            }
-            auto tasks = w->GetCompleteTasks();
-            for (auto &t : tasks) {
-                FinishTask(t);
-            }
-        }
-        if (ready_tasks_.empty() && empty_workers_ == workers_.size()) {
-            return false; // Finish
-        }
-        for (auto t : ready_tasks_) {
-            WorkerPtr w = ChooseWorker(t);
-            w->RunTask(t);
-        }
-        ready_tasks_.clear();
-        return true;
-    }
+    bool Tick();
 
-    WorkerPtr ChooseWorker(TaskPtr t) {
-        WorkerPtr w;
-        if (t->worker_prefered_.size()) {
-            w = *(t->worker_prefered_.begin());
-        } else {
-            w = *workers_.begin();
-        }
-        printf("choose worker id = %d\n", w->Device()->Id());
-        return std::move(w);
-    }
+    WorkerPtr ChooseWorker(TaskPtr t);
 
 private:
-    void AddEdge(TaskPtr src, TaskPtr dst) {
-        tasks_[src].next_tasks_.push_back(dst);
-        tasks_[dst].in_degree++;
-    }
+    void AddEdge(TaskPtr src, TaskPtr dst);
 
-    void CheckTaskReady(TaskPtr task) {
-        if (tasks_[task].in_degree == 0)
-            ready_tasks_.push_back(task);
-    }
+    void CheckTaskReady(TaskPtr task);
 
-    void FinishTask(TaskPtr task) {
-        for (auto t : tasks_[task].next_tasks_) {
-            --tasks_[t].in_degree;
-            CheckTaskReady(t);
-        }
-        task->Finish();
-        tasks_.erase(task);
-    }
+    void FinishTask(TaskPtr task);
 };
 
 #endif //LDA_ENGINE_H

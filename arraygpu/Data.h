@@ -10,30 +10,30 @@
 class DataBase {
 protected:
     struct State {
-        std::weak_ptr<TaskBase> task;
         size_t bytes = 0;
         std::map<DevicePtr, ArrayBasePtr> replicas;
         std::map<DevicePtr, ArrayBasePtr> invalids;
 
         ArrayBasePtr ReadAt(const DevicePtr &dev, cudaStream_t stream);
 
-        ArrayBasePtr
-        WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old, size_t cur_bytes);
+        ArrayBasePtr WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old, size_t cur_bytes);
     };
 
     mutable State last_state_;
-    mutable std::deque<State> states_;
+    mutable std::deque<std::weak_ptr<TaskBase>> tasks_scheduled_;
 
-//    void *data_ = nullptr;
+    friend class Engine;
+
+    void AddTask(const TaskPtr &t) {
+        tasks_scheduled_.push_back(t);
+    }
 
 public:
 
-    DataBase() {
+    DataBase() {}
 
-    }
-
-    size_t NumStates() const {
-        return states_.size();
+    size_t NumTasks() const {
+        return tasks_scheduled_.size();
     }
 
     ArrayBasePtr ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);

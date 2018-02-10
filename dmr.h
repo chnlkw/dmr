@@ -150,7 +150,7 @@ public:
     VectorPtr<TValue> ShuffleValues(VectorPtr<TValue> value_in) const {
         VectorPtr<TValue> value_out(new Vector<TValue>(value_in->size()));
         ShuffleByIdx(value_out, value_in, gather_indices_);
-        printf("shuffle values out states = %lu\n", value_out->NumStates());
+        printf("shuffle values out states = %lu\n", value_out->NumTasks());
         return std::move(value_out);
     }
 

@@ -150,9 +150,8 @@ void test_dmr() {
         }
 //        Device::Use(gpu_devices[0]);
         DataPtr<float> values_out = dmr1.ShuffleValues<float>(values);
-        printf("values_out states = %lu\n", values_out->NumStates());
-        values_out->Wait();
-        while (Engine::Get().Tick());
+//        values_out->Wait();
+//        while (Engine::Get().Tick());
         auto d_val_out = values_out->Read(Device::CpuDevice())->data();
         Device::UseCPU();
 //        d_val_out.Write(Device::Current());
