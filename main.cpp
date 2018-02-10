@@ -7,6 +7,7 @@
 #include <clock.h>
 
 #include <All.h>
+#include "dmr.h"
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
@@ -127,38 +128,37 @@ public:
 //    std::cout << view::all(pos) << '\n';
 //}
 
-/*
 void test_dmr() {
 
-    std::vector<DevicePtr> gpu_devices;
-    for (int i = 0; i < Device::NumGPUs(); i++) {
-        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
+//    std::vector<DevicePtr> gpu_devices;
+//    for (int i = 0; i < Device::NumGPUs(); i++) {
+//        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
 //        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaAllocator>(i)));
-    }
-    CUDA_CHECK();
-    {
-        std::vector<int> tmp(1000);
-        Device::Use(gpu_devices[0]);
-        Data<int> dtmp(tmp);
-        CUDA_CHECK();
-    }
+//    }
+
     Device::UseCPU();
 
     if (true) {
         std::vector<int> keys = {1, 3, 4, 2, 5};
         DMR<int, data_constructor_t> dmr1(keys);
-        Data<float> values(keys.size());
-        for (int i = 0; i < keys.size(); i++) {
-            values[i] = keys[i] * 10.0f;
-        }
-        Device::Use(gpu_devices[0]);
-        auto d_val_out = dmr1.ShuffleValues<float>(values);
-        CUDA_CHECK();
-        Device::UseCPU();
-        d_val_out.Write(Device::Current());
+        DataPtr<float> values(new Data<float>(keys.size()));
         {
-            auto &keys = dmr1.Keys();
-            auto &offs = dmr1.Offs();
+            auto v = values->Write()->data();
+            for (int i = 0; i < keys.size(); i++) {
+                v[i] = keys[i] * 10.0f;
+            }
+        }
+//        Device::Use(gpu_devices[0]);
+        DataPtr<float> values_out = dmr1.ShuffleValues<float>(values);
+        printf("values_out states = %lu\n", values_out->NumStates());
+        values_out->Wait();
+        while (Engine::Get().Tick());
+        auto d_val_out = values_out->Read(Device::CpuDevice())->data();
+        Device::UseCPU();
+//        d_val_out.Write(Device::Current());
+        {
+            auto &keys = *dmr1.Keys().Read();
+            auto &offs = *dmr1.Offs().Read();
             for (size_t i = 0; i < keys.size(); i++) {
                 auto k = keys[i];
                 for (int j = offs[i]; j < offs[i + 1]; j++) {
@@ -170,7 +170,7 @@ void test_dmr() {
         }
     }
 
-#if 1
+#if 0
     int N = 4;
 //    DMR<uint32_t> dmr(N, M);
 
@@ -182,9 +182,9 @@ void test_dmr() {
         values[i % N].push_back(v);
         a[k] ^= v;
     }
-    PartitionedDMR<uint32_t> dmr(keys);
+    PartitionedDMR <uint32_t> dmr(keys);
 #if 1
-    PartitionedDMR<uint32_t, data_constructor_t> dmr2(dmr);
+    PartitionedDMR <uint32_t, data_constructor_t> dmr2(dmr);
 
     std::vector<Data<uint32_t>> d_values;
     for (int i = 0; i < N; i++) {
@@ -238,13 +238,12 @@ void test_dmr() {
 #endif
     std::cout << "OK" << std::endl;
 }
- */
 
 template<class T>
 class TaskAdd : public TaskBase {
     DataPtr<T> a_, b_, c_;
 public:
-    TaskAdd(Engine& engine, DataPtr<T> a, DataPtr<T> b, DataPtr<T> c) :
+    TaskAdd(Engine &engine, DataPtr<T> a, DataPtr<T> b, DataPtr<T> c) :
             TaskBase(engine),
             a_(a), b_(b), c_(c) {
         assert(a->size() == b->size());
@@ -255,9 +254,9 @@ public:
     }
 
     virtual void Run(CPUWorker *cpu) override {
-        T* a = a_->Read(cpu->Device())->data();
-        T* b = b_->Read(cpu->Device())->data();
-        T* c = c_->Write(cpu->Device())->data();
+        T *a = a_->Read(cpu->Device())->data();
+        T *b = b_->Read(cpu->Device())->data();
+        T *c = c_->Write(cpu->Device())->data();
         for (int i = 0; i < c_->size(); i++) {
             c[i] = a[i] + b[i];
         }
@@ -265,31 +264,16 @@ public:
 
     virtual void Run(GPUWorker *gpu) override {
         std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
-        const T* a = a_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
-        const T* b = b_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
-        T* c = c_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
-        gpu_add<T>(c, a, b, c_->size(), gpu->Stream());
+        const T *a = a_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
+        const T *b = b_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
+        T *c = c_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
+        gpu_add(c, a, b, c_->size(), gpu->Stream());
     }
 };
 
 void test_engine() {
-//    std::vector<GPUWorker> gpu_workers;
-//    for (int i = 0; i < Device::NumGPUs(); i++)
-//        gpu_workers.emplace_back(i);
-//
-//    CPUWorker cpu_worker;
 
-    std::vector<DevicePtr> gpu_devices;
-    std::vector<WorkerPtr> gpu_workers;
-    for (int i = 0; i < Device::NumGPUs(); i++) {
-        auto d = std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30));
-        std::cout << d->Id() << std::endl;
-        gpu_devices.push_back(d);
-        gpu_workers.emplace_back(new GPUWorker(d));
-        printf("i=%d workerid = %d\n", i, gpu_workers.back()->Device()->Id());
-    }
-
-    Engine engine({gpu_workers.begin(), gpu_workers.end()});
+    auto &engine = Engine::Get();
 
     auto print = [](const auto &arr) {
         printf("%p : \n", &arr[0]);
@@ -334,6 +318,26 @@ void test_engine() {
 }
 
 int main() {
-//    test_dmr();
-    test_engine();
+//    std::vector<GPUWorker> gpu_workers;
+//    for (int i = 0; i < Device::NumGPUs(); i++)
+//        gpu_workers.emplace_back(i);
+//
+//    CPUWorker cpu_worker;
+
+    std::vector<DevicePtr> gpu_devices;
+    std::vector<WorkerPtr> gpu_workers;
+    for (int i = 0; i < Device::NumGPUs(); i++) {
+        auto d = std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30));
+        std::cout << d->Id() << std::endl;
+        gpu_devices.push_back(d);
+        gpu_workers.emplace_back(new GPUWorker(d));
+        printf("i=%d workerid = %d\n", i, gpu_workers.back()->Device()->Id());
+    }
+
+    Engine::Create({gpu_workers.begin(), gpu_workers.end()});
+//    Engine::Create({std::make_shared<CPUWorker>()});
+    test_dmr();
+//    test_engine();
+
+    Engine::Finish();
 }

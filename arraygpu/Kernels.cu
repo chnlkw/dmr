@@ -13,15 +13,15 @@ __global__ void shuffle_by_idx_kernel(T *dst, const T *src, const TOff *idx, siz
 };
 
 template<class T, class TOff>
-void shuffle_by_idx_gpu(T *dst, const T *src, const TOff *idx, size_t size) {
+void shuffle_by_idx_gpu(T *dst, const T *src, const TOff *idx, size_t size, cudaStream_t stream) {
 
-    shuffle_by_idx_kernel << < (size + 31) / 32, 32 >> > (dst, src, idx, size);
+    shuffle_by_idx_kernel << < (size + 31) / 32, 32, 0, stream >> > (dst, src, idx, size);
 }
 
-template void shuffle_by_idx_gpu<float, size_t>(float *dst, const float *src, const size_t *idx, size_t size);
+template void shuffle_by_idx_gpu<float, size_t>(float *dst, const float *src, const size_t *idx, size_t size, cudaStream_t stream);
 
 template void
-shuffle_by_idx_gpu<unsigned int, size_t>(unsigned int *dst, const unsigned int *src, const size_t *idx, size_t size);
+shuffle_by_idx_gpu<unsigned int, size_t>(unsigned int *dst, const unsigned int *src, const size_t *idx, size_t size, cudaStream_t stream);
 
 template<class T>
 __global__ void gpu_add_kernel(T *c, const T *a, const T *b, size_t size) { // c[i] = a[i] + b[i]

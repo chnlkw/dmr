@@ -71,6 +71,7 @@ void ArrayBase::ReAllocate(size_t bytes) {
 
 void ArrayBase::CopyFrom(const ArrayBase &that, bool check_size_equal) {
     size_t bytes = std::min(this->bytes_, that.bytes_);
+    printf("Copy %d -> %d\n", that.device_, this->device_, bytes);
     if (check_size_equal)
         assert(this->bytes_ == that.bytes_);
     DataCopy(this->ptr_, this->device_, that.ptr_, that.device_, bytes);
@@ -78,6 +79,7 @@ void ArrayBase::CopyFrom(const ArrayBase &that, bool check_size_equal) {
 
 void ArrayBase::CopyFromAsync(const ArrayBase &that, cudaStream_t stream, bool check_size_equal) {
     size_t bytes = std::min(this->bytes_, that.bytes_);
+    printf("CopyAsync %d -> %d\n", that.device_, this->device_, bytes);
     if (check_size_equal)
         assert(this->bytes_ == that.bytes_);
     DataCopyAsync(this->ptr_, this->device_, that.ptr_, that.device_, bytes, stream);

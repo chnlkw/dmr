@@ -15,56 +15,6 @@
 
 namespace Algorithm {
 
-template<class V1, class V2, class V3>
-void ShuffleByIdx(DevicePtr device, V1 &, const V2 &, const V3 &);
-
-template<class T, class TOff>
-void ShuffleByIdx(DevicePtr device, Array<T> &dst, const Array<T> &src, const Array<TOff> &idx) {
-    int dev_id = dst.GetDevice();
-    assert(dev_id == src.GetDevice());
-    assert(dev_id == idx.GetDevice());
-    size_t size = dst.size();
-    assert(size == src.size());
-    assert(size == idx.size());
-
-//    printf("ShuffleByIdx size=%d, dev=%d\n", size, dev_id);
-
-    if (dev_id < 0) { //CPU
-        for (size_t i = 0; i < src.size(); i++) {
-            dst[i] = src[idx[i]];
-        }
-    } else {
-        CUDA_CALL(cudaSetDevice, dev_id);
-        shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), size);
-        CUDA_CHECK();
-    }
-}
-
-template<class T, class TOff>
-void ShuffleByIdx(DevicePtr device, std::vector<T> &dst, const std::vector<T> &src, const std::vector<TOff> &idx) {
-    size_t size = dst.size();
-    assert(size == src.size());
-    assert(size == idx.size());
-
-    for (size_t i = 0; i < src.size(); i++) {
-        dst[i] = src[idx[i]];
-    }
-}
-
-template<class T, class TOff>
-void ShuffleByIdx(DevicePtr device, Data<T> &dst, const Data<T> &src, const Data<TOff> &idx) {
-    ShuffleByIdx(device,
-                 *dst.GetFrom(device),
-                 *src.GetFrom(device),
-                 *idx.GetFrom(device)
-    );
-}
-
-template<class V1, class V2, class V3>
-void ShuffleByIdx(V1 &dst, const V2 &src, const V3 &idx) {
-    ShuffleByIdx(GetDevice(dst), dst, src, idx);
-};
-
 template<class V>
 V Renew(const V &in, size_t count = 0);
 

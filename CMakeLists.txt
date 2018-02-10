@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 project(dmr)
 
 set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 find_package(CUDA)
 if (CUDA_FOUND)
@@ -10,8 +11,6 @@ if (CUDA_FOUND)
 #    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --ptxas-options=-v)
 #    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --maxrregcount 64)
 endif ()
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 include_directories(arraygpu)
 

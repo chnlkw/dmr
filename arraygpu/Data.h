@@ -32,21 +32,15 @@ public:
 
     }
 
+    size_t NumStates() const {
+        return states_.size();
+    }
+
     ArrayBasePtr ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
 
-    ArrayBasePtr Read(DevicePtr dev) {
-        Wait();
-        ArrayBasePtr ret = last_state_.ReadAt(dev, 0);
-        CUDA_CALL(cudaStreamSynchronize, 0);
-        return ret;
-    }
+    ArrayBasePtr Read(DevicePtr dev) const;
 
-    ArrayBasePtr Write(DevicePtr dev, size_t bytes) {
-        Wait();
-        ArrayBasePtr ret = last_state_.WriteAt(dev, 0, false, bytes);
-        CUDA_CALL(cudaStreamSynchronize, 0);
-        return ret;
-    }
+    ArrayBasePtr Write(DevicePtr dev, size_t bytes);
 
     ArrayBasePtr Write(DevicePtr dev) { return Write(dev, last_state_.bytes); }
 
@@ -56,36 +50,23 @@ public:
 
     ArrayBasePtr ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
 
-    ArrayBasePtr ReadWrite(DevicePtr dev) {
-        ArrayBasePtr ret = last_state_.WriteAt(dev, 0, true, last_state_.bytes);
-        CUDA_CALL(cudaStreamSynchronize, 0);
-        return ret;
-    }
+    ArrayBasePtr ReadWrite(DevicePtr dev);
 
-    void Wait();
+    void Wait() const;
 };
 
 template<class T>
 class Data : public DataBase {
 private:
-//    size_t count_;
-//    mutable DevicePtr cur_device_;
-//    mutable DevicePtr master_device_;
-//    mutable T *beg_, *end_;
-//    mutable std::map<DevicePtr, ArrayPtr<T>> replicas_;
-//    mutable std::map<DevicePtr, ArrayPtr<T>> invalids_;
-
     //add policy
 
 public:
 
     using value_type = T;
 
-    explicit Data() {}
-
+    Data() {}
 
     Data(size_t count, DevicePtr device = Device::Current()) {
-//        replicas_[device] = CreateArrayAt(device, count_);
         Write(device, count * sizeof(T));
     }
 
@@ -95,7 +76,7 @@ public:
         DataCopy(ptr, device->Id(), vec.data(), -1, bytes);
     }
 
-    ArrayPtr<T> Read(DevicePtr dev = Device::Current()) {
+    ArrayPtr<T> Read(DevicePtr dev = Device::Current()) const {
         return std::static_pointer_cast<Array<T>>(DataBase::Read(dev));
     }
 
@@ -123,113 +104,17 @@ public:
         return std::static_pointer_cast<Array<T>>(DataBase::Write(dev));
     }
 
-//    bool HeldBy(DevicePtr device) const {
-//        return replicas_.count(device);
-//    }
-
-//    void CopyTo(DevicePtr device) const {
-//        if (HeldBy(device))
-//            return;
-//        assert(replicas_.size() > 0);
-//        ArrayPtr<T> from = replicas_.begin()->second;
-//
-//        ArrayPtr<T> to;
-//        if (invalids_.count(device)) {
-//            to = invalids_[device];
-//            invalids_.erase(device);
-//        } else {
-//            to = CreateArrayAt(device, count_);
-//        }
-//        to->CopyFrom(*from);
-//        replicas_[device] = to;
-//        SetPointers(device);
-//    }
-
-//    void MoveTo(DevicePtr device) {
-//        if (HeldBy(device))
-//            return;
-//        CopyTo(device);
-//        InvalidOthers(device);
-//        SetPointers(device);
-//    }
-
-//    void Use(DevicePtr device = Device::Current()) {
-//        GetFrom(device);
-//        InvalidOthers(device);
-//        SetPointers(device);
-//    }
-
-//    ArrayPtr<T> GetFrom(DevicePtr device) {
-//        if (replicas_.size() > 0) {
-//            CopyTo(device);
-//        } else {
-//            replicas_[device] = CreateArrayAt(device, count_);
-//        }
-//        InvalidOthers(device);
-//        return replicas_[device];
-//    }
-
-//    auto GetFrom(DevicePtr device) const {
-//        CopyTo(device);
-//        return std::const_pointer_cast<const Array<T>>(replicas_[device]);
-//    }
-
-//    void CleanInvalids() {
-//        invalids_.clear();
-//    }
-
-//    DevicePtr DeviceCurrent() const {
-//        printf("DeviceCurrent = %d\n", cur_device_->Id());
-//        return cur_device_;
-//    }
-
     size_t size() const {
         return last_state_.bytes / sizeof(T);
     }
 
-//    const T *begin() const { return (T *) data_; }
-
-//    T *begin() { return (T *) data_; }
-
-//    const T *end() const { return begin() + size(); }
-
-//    T *end() { return begin() + size(); }
-
-//    T &operator[](size_t i) { return begin()[i]; }
-
-//    const T &operator[](size_t i) const { return begin()[i]; }
-
     std::string ToString() const {
         std::ostringstream os;
-//        os << "Data(" << "count=" << size() << ", dev=" << "[" << begin() << "," << end() << "])";
         os << "Data(" << "count=" << size();
         return os.str();
     }
 
 private:
-//
-//    void SetPointers(DevicePtr device) const {
-////        beg_ = (T *) GetFrom(device)->data();
-//        beg_ = last_state_.replicas[device]->data();
-//        end_ = beg_ + count_;
-//        cur_device_ = device;
-//    }
-//
-//    void InvalidOthers(DevicePtr device) {
-//        for (auto it = replicas_.begin(); it != replicas_.end();) {
-//            if (it->first != device) {
-//                invalids_.emplace(*it);
-//                it = replicas_.erase(it);
-//            } else {
-//                ++it;
-//            }
-//        }
-//    }
-//
-//    static auto CreateArrayAt(DevicePtr device, size_t count) {
-//        return ArrayPtr<T>(new Array<T>(device->GetAllocator(), device->Id(), count));
-//    }
-
 };
 
 namespace std {
