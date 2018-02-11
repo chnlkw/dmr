@@ -57,12 +57,12 @@ public:
     }
 
     template<class Vec>
-    std::vector<std::shared_ptr<Vec>> ShuffleValues(const std::vector<std::shared_ptr<Vec>> &value_in) const {
-        std::vector<std::shared_ptr<Vec>> value_out;
+    std::vector<Vec> ShuffleValues(const std::vector<Vec> &value_in) const {
+        std::vector<Vec> value_out;
         for (size_t i = 0; i < size_; i++) {
             assert(value_in[i].size() == send_sum_[i]);
 //            std::cout << "val_in " << i << " " << std::to_string(value_in[i]) << std::endl;
-            value_out.emplace_back(new Vec(recv_sum_[i]));
+            value_out.emplace_back(recv_sum_[i]);
 //            std::cout << "val_out " << i << " " << std::to_string(value_out.back()) << std::endl;
             assert(value_out.back().size() == recv_sum_[i]);
         }

@@ -22,15 +22,13 @@ template<class TKey, class ArrayConstructor = vector_constructor_t>
 class PartitionedDMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
-    template<class T>
-    using VectorPtr = std::shared_ptr<Vector<T>>;
 public:
     using TPar = uint32_t;
     using TOff = size_t;
 
     struct Reducer {
-        VectorPtr<TKey> keys;
-        VectorPtr<TOff> offs;
+        Vector<TKey> keys;
+        Vector<TOff> offs;
     };
 
 private:
@@ -58,14 +56,14 @@ public:
         size_t key_partition_size = (max_key_ + size_) / size_;
         auto partitioner = [key_partition_size](TKey k) -> TPar { return k / key_partition_size; };
 
-        std::vector<VectorPtr<TKey>> parted_keys;
+        std::vector<std::vector<TKey>> parted_keys;
         // local partition
         for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
-            auto keys = std::make_shared<std::vector<TKey>>(mapper_keys[mapper_id]);
-            std::vector<TPar> par_id(keys->size());
-            std::transform(keys->begin(), keys->end(), par_id.begin(), partitioner);
+            auto keys = mapper_keys[mapper_id];
+            std::vector<TPar> par_id(keys.size());
+            std::transform(keys.begin(), keys.end(), par_id.begin(), partitioner);
             DMR<TPar> dmr(par_id);
-            auto parted_key = std::make_shared<Vector<TKey>>(dmr.ShuffleValues<TKey>(keys));
+            auto parted_key = dmr.ShuffleValues<TKey>(keys);
             parted_keys.push_back(parted_key);
             dmr1_[mapper_id] = std::move(dmr);
         }
@@ -102,8 +100,8 @@ public:
     }
 
     template<class TValue>
-    std::vector<VectorPtr<TValue>> ShuffleValues(const std::vector<VectorPtr<TValue>> &value_in) const {
-        std::vector<VectorPtr<TValue>> parted_values;
+    std::vector<Vector<TValue>> ShuffleValues(const std::vector<Vector<TValue>> &value_in) const {
+        std::vector<Vector<TValue>> parted_values;
 //        printf("S1\n");
         for (size_t i = 0; i < size_; i++) {
 //            std::cout << "values_in " << i << " " << std::to_string(value_in[i]) << std::endl;

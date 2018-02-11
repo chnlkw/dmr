@@ -18,7 +18,7 @@ protected:
     void *ptr_;
     bool owned_;
 
-    void ReAllocate(size_t bytes);
+    void Allocate(size_t bytes);
 
     void Free();
 

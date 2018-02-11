@@ -139,21 +139,22 @@ void test_dmr() {
 
     Device::UseCPU();
 
+#if 1
     if (true) {
         std::vector<int> keys = {1, 3, 4, 2, 5};
         DMR<int, data_constructor_t> dmr1(keys);
-        auto values = std::make_shared<Data<float>>(keys.size());
+        Data<float> values(keys.size());
         {
-            auto v = values->Write().data();
+            auto v = values.Write().data();
             for (int i = 0; i < keys.size(); i++) {
                 v[i] = keys[i] * 10.0f;
             }
         }
 //        Device::Use(gpu_devices[0]);
-        DataPtr<float> values_out = dmr1.ShuffleValues<float>(values);
+        Data<float> values_out = dmr1.ShuffleValues<float>(values);
 //        values_out->Wait();
 //        while (Engine::Get().Tick());
-        auto d_val_out = values_out->Read(Device::CpuDevice()).data();
+        auto d_val_out = values_out.Read(Device::CpuDevice()).data();
         Device::UseCPU();
 //        d_val_out.Write(Device::Current());
         {
@@ -169,8 +170,9 @@ void test_dmr() {
             printf("\n");
         }
     }
+#endif
 
-#if 0
+#if 1
     int N = 4;
 //    DMR<uint32_t> dmr(N, M);
 
@@ -185,9 +187,9 @@ void test_dmr() {
 #if 1
     PartitionedDMR<uint32_t, data_constructor_t> dmr2(keys);
 
-    std::vector<DataPtr<uint32_t>> d_values;
+    std::vector<Data<uint32_t>> d_values;
     for (int i = 0; i < N; i++) {
-        d_values.push_back(std::make_shared<Data<uint32_t>>(values[i]));
+        d_values.emplace_back(values[i]);
     }
 
     printf("Shufflevalues\n");
@@ -198,7 +200,7 @@ void test_dmr() {
         auto r = dmr2.ShuffleValues<uint32_t>(d_values);
         size_t sum = 0;
         for (auto &x : r) {
-            sum += x->size() * sizeof(int);
+            sum += x.size() * sizeof(int);
         }
         double t = clk.timeElapsed();
         double speed = sum / t / (1LU << 30);
@@ -213,7 +215,7 @@ void test_dmr() {
     for (size_t i = 0; i < dmr2.Size(); i++) {
         auto keys = dmr2.Keys(i).Read().data();
         auto offs = dmr2.Offs(i).Read().data();
-        auto values = result[i]->Read().data();
+        auto values = result[i].Read().data();
         for (size_t i = 0; i < dmr2.Keys(i).size(); i++) {
             auto k = keys[i];
             if (exist_keys.count(k)) {
@@ -238,33 +240,33 @@ void test_dmr() {
 
 template<class T>
 class TaskAdd : public TaskBase {
-    DataPtr<T> a_, b_, c_;
+    Data<T> a_, b_, c_;
 public:
-    TaskAdd(Engine &engine, DataPtr<T> a, DataPtr<T> b, DataPtr<T> c) :
+    TaskAdd(Engine &engine, Data<T> a, Data<T> b, Data<T> c) :
             TaskBase(engine),
             a_(a), b_(b), c_(c) {
-        assert(a->size() == b->size());
-        assert(a->size() == c->size());
+        assert(a.size() == b.size());
+        assert(a.size() == c.size());
         AddInput(a);
         AddInput(b);
         AddOutput(c);
     }
 
     virtual void Run(CPUWorker *cpu) override {
-        const T *a = a_->Read(cpu->Device()).data();
-        const T *b = b_->Read(cpu->Device()).data();
-        T *c = c_->Write(cpu->Device()).data();
-        for (int i = 0; i < c_->size(); i++) {
+        const T *a = a_.Read(cpu->Device()).data();
+        const T *b = b_.Read(cpu->Device()).data();
+        T *c = c_.Write(cpu->Device()).data();
+        for (int i = 0; i < c_.size(); i++) {
             c[i] = a[i] + b[i];
         }
     }
 
     virtual void Run(GPUWorker *gpu) override {
         std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
-        const T *a = a_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
-        const T *b = b_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
-        T *c = c_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
-        gpu_add(c, a, b, c_->size(), gpu->Stream());
+        const T *a = a_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
+        const T *b = b_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
+        T *c = c_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
+        gpu_add(c, a, b, c_.size(), gpu->Stream());
     }
 };
 
@@ -280,15 +282,15 @@ void test_engine() {
         printf("\n");
     };
 
-    auto d1 = std::make_shared<Data<int>>(10);
-    Array<int> &a1 = d1->Write();
-    auto d2 = std::make_shared<Data<int>>(d1->size());
-    Array<int> &a2 = d2->Write();
-    for (int i = 0; i < d1->size(); i++) {
+    auto d1 = Data<int>(10);
+    Array<int> &a1 = d1.Write();
+    auto d2 = Data<int>(d1.size());
+    Array<int> &a2 = d2.Write();
+    for (int i = 0; i < d1.size(); i++) {
         a1[i] = i;
         a2[i] = i * i;
     }
-    auto d3 = std::make_shared<Data<int>>(d1->size());
+    auto d3 = Data<int>(d1.size());
 
     print(a1);
     print(a2);
@@ -296,7 +298,7 @@ void test_engine() {
 //    engine.AddTask(t1);
     engine.AddTask<TaskAdd<int>>(d1, d2, d3);
 
-    auto d4 = std::make_shared<Data<int>>(d1->size());
+    auto d4 = Data<int>(d1.size());
     auto t2 = std::make_shared<TaskAdd<int>>(engine, d2, d3, d4);
 
     engine.AddTask(t2);
@@ -305,10 +307,10 @@ void test_engine() {
     t2->WaitFinish();
     print(a1);
     print(a2);
-    auto& a3 = d3->Read(Device::CpuDevice());
+    auto &a3 = d3.Read(Device::CpuDevice());
     CUDA_CHECK();
     print(a3);
-    auto& a4 = d4->Read(Device::CpuDevice());
+    auto &a4 = d4.Read(Device::CpuDevice());
     CUDA_CHECK();
     print(a4);
 
@@ -334,7 +336,7 @@ int main() {
     Engine::Create({gpu_workers.begin(), gpu_workers.end()});
 //    Engine::Create({std::make_shared<CPUWorker>()});
     test_dmr();
-    test_engine();
+//    test_engine();
 
     Engine::Finish();
 }

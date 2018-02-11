@@ -40,8 +40,7 @@ using AllocatorPtr = std::shared_ptr<AllocatorBase>;
 using DevicePtr = std::shared_ptr<DeviceBase>;
 using NodePtr = std::shared_ptr<Node>;
 using DataBasePtr = std::shared_ptr<DataBase>;
-template<class T>
-using DataPtr = std::shared_ptr<Data<T>>;
+//template<class T> using DataPtr = std::shared_ptr<Data<T>>;
 using TaskPtr = std::shared_ptr<TaskBase>;
 using WorkerPtr = std::shared_ptr<WorkerBase>;
 

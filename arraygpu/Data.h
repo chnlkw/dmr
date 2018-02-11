@@ -28,10 +28,15 @@ protected:
         tasks_scheduled_.push_back(t);
     }
 
-    DataBase() {}
-
 public:
 
+    DataBase() = default;
+
+    DataBase(const DataBase &) = delete;
+
+    size_t Bytes() const {
+        return last_state_.bytes;
+    }
 
     size_t NumTasks() const {
         return tasks_scheduled_.size();
@@ -57,56 +62,77 @@ public:
 };
 
 template<class T>
-class Data : public DataBase {
+class Data : public std::shared_ptr<DataBase> {
 private:
+    mutable T *data_ = nullptr;
+
     //add policy
 
 public:
-    Data() {}
+    Data() : std::shared_ptr<DataBase>(new DataBase()) {
+    }
 
-    Data(size_t count, DevicePtr device = Device::Current()) {
+    explicit Data(size_t count, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(new DataBase()) {
         Write(device, count * sizeof(T));
     }
 
-    Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) {
+    Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(new DataBase()) {
         size_t bytes = vec.size() * sizeof(T);
-        void *ptr = Write(device, bytes).data();
+        void *ptr = get()->Write(device, bytes)->data();
         DataCopy(ptr, device->Id(), vec.data(), -1, bytes);
     }
 
     using value_type = T;
 
-    const Array<T>& Read(DevicePtr dev = Device::Current()) const {
-        return *std::static_pointer_cast<Array<T>>(DataBase::Read(dev));
+    const Array<T> &Read(DevicePtr dev = Device::Current()) const {
+        const Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Read(dev));
+        data_ = (T *) ret.data();
+        return ret;
     }
 
-    const Array<T>& ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        return *std::static_pointer_cast<Array<T>>(DataBase::ReadAsync(task, dev, stream));
+    const Array<T> &ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+        data_ = nullptr;
+        return *std::static_pointer_cast<Array<T>>(get()->ReadAsync(task, dev, stream));
     }
 
-    Array<T>& WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
-        return *std::static_pointer_cast<Array<T>>(DataBase::WriteAsync(task, dev, stream, bytes));
+    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
+        data_ = nullptr;
+        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, bytes));
     }
 
-    Array<T>& WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        return *std::static_pointer_cast<Array<T>>(DataBase::WriteAsync(task, dev, stream));
+    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+        data_ = nullptr;
+        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream));
     }
 
-    Array<T>& ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        return *std::static_pointer_cast<Array<T>>(DataBase::ReadWriteAsync(task, dev, stream));
+    Array<T> &ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+        data_ = nullptr;
+        return *std::static_pointer_cast<Array<T>>(get()->ReadWriteAsync(task, dev, stream));
     }
 
-    Array<T>& Write(DevicePtr dev, size_t bytes) {
-        return *std::static_pointer_cast<Array<T>>(DataBase::Write(dev, bytes));
+    Array<T> &Write(DevicePtr dev, size_t bytes) {
+        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev, bytes));
+        data_ = ret.data();
+        return ret;
     }
 
-    Array<T>& Write(DevicePtr dev = Device::Current()) {
-        return *std::static_pointer_cast<Array<T>>(DataBase::Write(dev));
+    Array<T> &Write(DevicePtr dev = Device::Current()) {
+        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev));
+        data_ = ret.data();
+        return ret;
     }
 
     size_t size() const {
-        return last_state_.bytes / sizeof(T);
+        return get()->Bytes() / sizeof(T);
     }
+
+    T *data() { return data_; }
+
+    const T *data() const { return data_; }
+
+    const T &operator[](ssize_t idx) const { return data()[idx]; }
+
+    T &operator[](ssize_t idx) { return data()[idx]; }
 
     std::string ToString() const {
         std::ostringstream os;

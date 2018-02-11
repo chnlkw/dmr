@@ -16,51 +16,51 @@
 //template<class V1, class V2, class V3>
 //void ShuffleByIdx(V1 dst, const V2 src, const V3 idx);
 
-//template<class T, class TOff>
-//void ShuffleByIdx(std::vector<T> *p_dst, const std::vector<T> *p_src, const std::vector<TOff> *p_idx) {
-//    size_t size = p_dst->size();
-//    assert(size == p_src->size());
-//    assert(size == p_idx->size());
-//    auto dst = p_dst->data();
-//    auto src = p_src->data();
-//    auto idx = p_idx->data();
-//
-//    for (size_t i = 0; i < src->size(); i++) {
-//        dst[i] = src[idx[i]];
-//    }
-//}
+template<class T, class TOff>
+void ShuffleByIdx(std::vector<T>& p_dst, const std::vector<T> &p_src, const std::vector<TOff> &p_idx) {
+    size_t size = p_dst.size();
+    assert(size == p_src.size());
+    assert(size == p_idx.size());
+    auto dst = p_dst.data();
+    auto src = p_src.data();
+    auto idx = p_idx.data();
+
+    for (size_t i = 0; i < p_src.size(); i++) {
+        dst[i] = src[idx[i]];
+    }
+}
 
 template<class T, class TOff>
-void ShuffleByIdx(DataPtr<T> dst, DataPtr<T> src, DataPtr<TOff> idx) {
+void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
     struct TaskShuffle : TaskBase {
-        DataPtr<T> dst_, src_;
-        DataPtr<TOff> idx_;
+        Data<T> dst_, src_;
+        Data<TOff> idx_;
 
-        TaskShuffle(Engine &engine, DataPtr<T> dst, DataPtr<T> src, DataPtr<TOff> idx) :
+        TaskShuffle(Engine &engine, Data<T> dst, Data<T> src, Data<TOff> idx) :
                 TaskBase(engine),
                 dst_(dst), src_(src), idx_(idx) {
-            assert(dst->size() == src->size());
-            assert(dst->size() == idx->size());
+            assert(dst.size() == src.size());
+            assert(dst.size() == idx.size());
             AddInput(src);
             AddInput(idx);
             AddOutput(dst);
         }
 
         virtual void Run(CPUWorker *cpu) override {
-            auto &dst = dst_->Write(cpu->Device());
-            auto &src = src_->Read(cpu->Device());
-            auto &idx = idx_->Read(cpu->Device());
-            for (int i = 0; i < dst_->size(); i++) {
+            auto &dst = dst_.Write(cpu->Device());
+            auto &src = src_.Read(cpu->Device());
+            auto &idx = idx_.Read(cpu->Device());
+            for (int i = 0; i < dst_.size(); i++) {
                 dst[i] = src[idx[i]];
             }
         }
 
         virtual void Run(GPUWorker *gpu) override {
             std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
-            auto &src = src_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
-            auto &idx = idx_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
-            auto &dst = dst_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream());
-            shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), src_->size(), gpu->Stream());
+            auto &src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
+            auto &idx = idx_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
+            auto &dst = dst_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream());
+            shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), src_.size(), gpu->Stream());
         }
     };
     Engine::Get().AddTask<TaskShuffle>(dst, src, idx);
@@ -70,16 +70,14 @@ template<class TKey, class ArrayConstructor = vector_constructor_t>
 class DMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
-    template<class T>
-    using VectorPtr = std::shared_ptr<Vector<T>>;
 
     using TOff = size_t;
 
 private:
     size_t size_;
-    VectorPtr<TKey> reducer_keys_;
-    VectorPtr<TOff> reducer_offs_;
-    VectorPtr<TOff> gather_indices_;
+    Vector<TKey> reducer_keys_;
+    Vector<TOff> reducer_offs_;
+    Vector<TOff> gather_indices_;
 
 public:
     DMR() {}
@@ -117,9 +115,9 @@ public:
         reducer_keys.shrink_to_fit();
         reducer_offs.shrink_to_fit();
 
-        reducer_keys_.reset(new Vector<TKey>(std::move(reducer_keys)));
-        reducer_offs_.reset(new Vector<TOff>(std::move(reducer_offs)));
-        gather_indices_.reset(new Vector<TOff>(std::move(gather_indices)));
+        reducer_keys_ = std::move(reducer_keys);
+        reducer_offs_ = std::move(reducer_offs);
+        gather_indices_ = std::move(gather_indices);
     }
 
     template<class Cons>
@@ -135,22 +133,21 @@ public:
     }
 
     const Vector<TOff> &GatherIndices() const {
-        return *gather_indices_;
+        return gather_indices_;
     }
 
     const Vector<TKey> &Keys() const {
-        return *reducer_keys_;
+        return reducer_keys_;
     }
 
     const Vector<TOff> &Offs() const {
-        return *reducer_offs_;
+        return reducer_offs_;
     }
 
     template<class TValue>
-    VectorPtr<TValue> ShuffleValues(VectorPtr<TValue> value_in) const {
-        VectorPtr<TValue> value_out(new Vector<TValue>(value_in->size()));
+    Vector<TValue> ShuffleValues(const Vector<TValue>& value_in) const {
+        Vector<TValue> value_out(value_in.size());
         ShuffleByIdx(value_out, value_in, gather_indices_);
-        printf("shuffle values out states = %lu\n", value_out->NumTasks());
         return std::move(value_out);
     }
 

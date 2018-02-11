@@ -7,20 +7,20 @@
 ArrayBase::ArrayBase(size_t bytes)
         : allocator_(Device::Current()->GetAllocator()),
           device_(Device::Current()->Id()) {
-    ReAllocate(bytes);
+    Allocate(bytes);
 }
 
 ArrayBase::ArrayBase(const ArrayBase &that) :
         allocator_(Device::Current()->GetAllocator()),
         device_(Device::Current()->Id()) {
-    ReAllocate(that.bytes_);
+    Allocate(that.bytes_);
     CopyFrom(that);
 }
 
 ArrayBase::ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
         allocator_(Device::Current()->GetAllocator()),
         device_(Device::Current()->Id()) {
-    ReAllocate(bytes);
+    Allocate(bytes);
     DataCopy(this->ptr_, this->device_, ptr, -1, this->bytes_);
 }
 
@@ -56,8 +56,8 @@ void ArrayBase::Free() {
     bytes_ = 0;
 }
 
-void ArrayBase::ReAllocate(size_t bytes) {
-    Free();
+void ArrayBase::Allocate(size_t bytes) {
+//    Free();
     bytes_ = bytes;
     if (bytes > 0) {
         owned_ = true;
@@ -88,5 +88,5 @@ void ArrayBase::CopyFromAsync(const ArrayBase &that, cudaStream_t stream, bool c
 ArrayBase::ArrayBase(AllocatorPtr allocator, int device, size_t bytes)
         : allocator_(std::move(allocator)),
           device_(device) {
-    ReAllocate(bytes);
+    Allocate(bytes);
 }
