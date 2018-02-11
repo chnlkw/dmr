@@ -57,19 +57,19 @@ public:
     }
 
     template<class Vec>
-    std::vector<Vec> ShuffleValues(const std::vector<Vec> &value_in) const {
-        std::vector<Vec> value_out;
+    std::vector<std::shared_ptr<Vec>> ShuffleValues(const std::vector<std::shared_ptr<Vec>> &value_in) const {
+        std::vector<std::shared_ptr<Vec>> value_out;
         for (size_t i = 0; i < size_; i++) {
             assert(value_in[i].size() == send_sum_[i]);
 //            std::cout << "val_in " << i << " " << std::to_string(value_in[i]) << std::endl;
-            value_out.push_back(Algorithm::Renew(value_in[i], recv_sum_[i]));
+            value_out.emplace_back(new Vec(recv_sum_[i]));
 //            std::cout << "val_out " << i << " " << std::to_string(value_out.back()) << std::endl;
             assert(value_out.back().size() == recv_sum_[i]);
         }
         for (size_t i = 0; i < size_; i++) {
             for (size_t j = 0; j < size_; j++) {
 //                printf(" i %zu , j %zu\n", i, j);
-                Algorithm::Copy(value_in[j], send_offs_[j][i], value_out[i], recv_offs_[i][j], send_counts_[j][i]);
+//                Algorithm::Copy(value_in[j], send_offs_[j][i], value_out[i], recv_offs_[i][j], send_counts_[j][i]);
 //                auto src_beg = value_in[j].begin() + send_offs_[j][i];
 //                auto src_end = src_beg + send_counts_[j][i];
 //                auto dst_beg = value_out[i].begin() + recv_offs_[i][j];

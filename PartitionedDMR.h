@@ -22,14 +22,15 @@ template<class TKey, class ArrayConstructor = vector_constructor_t>
 class PartitionedDMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
+    template<class T>
+    using VectorPtr = std::shared_ptr<Vector<T>>;
 public:
     using TPar = uint32_t;
     using TOff = size_t;
 
     struct Reducer {
-        Vector<TKey> keys;
-        Vector<TOff> offs;
-
+        VectorPtr<TKey> keys;
+        VectorPtr<TOff> offs;
     };
 
 private:
@@ -40,7 +41,7 @@ private:
     std::vector<DMR<TKey, ArrayConstructor>> dmr3_;
 public:
 
-    explicit PartitionedDMR(const std::vector<Vector<TKey>> &mapper_keys) :
+    explicit PartitionedDMR(const std::vector<std::vector<TKey>> &mapper_keys) :
             size_(mapper_keys.size()),
             dmr1_(size_),
             dmr3_(size_),
@@ -48,7 +49,7 @@ public:
         Prepare(mapper_keys);
     }
 
-    void Prepare(const std::vector<Vector<TKey>> &mapper_keys) {
+    void Prepare(const std::vector<std::vector<TKey>> &mapper_keys) {
         max_key_ = 0;
         for (auto &v : mapper_keys)
             max_key_ = std::accumulate(v.begin(), v.end(), max_key_, [](auto a, auto b) { return std::max(a, b); });
@@ -57,14 +58,15 @@ public:
         size_t key_partition_size = (max_key_ + size_) / size_;
         auto partitioner = [key_partition_size](TKey k) -> TPar { return k / key_partition_size; };
 
-        std::vector<Vector<TKey>> parted_keys;
+        std::vector<VectorPtr<TKey>> parted_keys;
         // local partition
         for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
-            auto &keys = mapper_keys[mapper_id];
-            Vector<TPar> par_id(keys.size());
-            std::transform(keys.begin(), keys.end(), par_id.begin(), partitioner);
+            auto keys = std::make_shared<std::vector<TKey>>(mapper_keys[mapper_id]);
+            std::vector<TPar> par_id(keys->size());
+            std::transform(keys->begin(), keys->end(), par_id.begin(), partitioner);
             DMR<TPar> dmr(par_id);
-            parted_keys.push_back(dmr.ShuffleValues<TKey>(keys));
+            auto parted_key = std::make_shared<Vector<TKey>>(dmr.ShuffleValues<TKey>(keys));
+            parted_keys.push_back(parted_key);
             dmr1_[mapper_id] = std::move(dmr);
         }
 
@@ -72,7 +74,7 @@ public:
         std::vector<std::vector<size_t>> send_counts(size_);
         for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
             auto &dmr = dmr1_[mapper_id];
-            Vector<size_t> counts(size_);
+            std::vector<size_t> counts(size_);
             for (size_t i = 0; i < dmr.Keys().size(); i++) {
                 TKey k = dmr.Keys()[i];
                 counts.at(k) = dmr.Offs()[i + 1] - dmr.Offs()[i];
@@ -93,15 +95,15 @@ public:
             size_(that.Size()),
             max_key_(that.MaxKey()),
             alltoall_(that.GetAlltoallDMR()) {
-        for (auto& d : that.GetDMR1())
+        for (auto &d : that.GetDMR1())
             dmr1_.push_back(d);
-        for (auto& d : that.GetDMR3())
+        for (auto &d : that.GetDMR3())
             dmr3_.push_back(d);
     }
 
     template<class TValue>
-    std::vector<Vector<TValue>> ShuffleValues(const std::vector<Vector<TValue>> &value_in) const {
-        std::vector<Vector<TValue>> parted_values;
+    std::vector<VectorPtr<TValue>> ShuffleValues(const std::vector<VectorPtr<TValue>> &value_in) const {
+        std::vector<VectorPtr<TValue>> parted_values;
 //        printf("S1\n");
         for (size_t i = 0; i < size_; i++) {
 //            std::cout << "values_in " << i << " " << std::to_string(value_in[i]) << std::endl;

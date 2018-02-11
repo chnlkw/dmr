@@ -28,9 +28,10 @@ protected:
         tasks_scheduled_.push_back(t);
     }
 
+    DataBase() {}
+
 public:
 
-    DataBase() {}
 
     size_t NumTasks() const {
         return tasks_scheduled_.size();
@@ -61,9 +62,6 @@ private:
     //add policy
 
 public:
-
-    using value_type = T;
-
     Data() {}
 
     Data(size_t count, DevicePtr device = Device::Current()) {
@@ -72,36 +70,38 @@ public:
 
     Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) {
         size_t bytes = vec.size() * sizeof(T);
-        void *ptr = Write(device, bytes)->data();
+        void *ptr = Write(device, bytes).data();
         DataCopy(ptr, device->Id(), vec.data(), -1, bytes);
     }
 
-    ArrayPtr<T> Read(DevicePtr dev = Device::Current()) const {
-        return std::static_pointer_cast<Array<T>>(DataBase::Read(dev));
+    using value_type = T;
+
+    const Array<T>& Read(DevicePtr dev = Device::Current()) const {
+        return *std::static_pointer_cast<Array<T>>(DataBase::Read(dev));
     }
 
-    ArrayPtr<T> ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        return std::static_pointer_cast<Array<T>>(DataBase::ReadAsync(task, dev, stream));
+    const Array<T>& ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+        return *std::static_pointer_cast<Array<T>>(DataBase::ReadAsync(task, dev, stream));
     }
 
-    ArrayPtr<T> WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
-        return std::static_pointer_cast<Array<T>>(DataBase::WriteAsync(task, dev, stream, bytes));
+    Array<T>& WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
+        return *std::static_pointer_cast<Array<T>>(DataBase::WriteAsync(task, dev, stream, bytes));
     }
 
-    ArrayPtr<T> WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        return std::static_pointer_cast<Array<T>>(DataBase::WriteAsync(task, dev, stream));
+    Array<T>& WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+        return *std::static_pointer_cast<Array<T>>(DataBase::WriteAsync(task, dev, stream));
     }
 
-    ArrayPtr<T> ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        return std::static_pointer_cast<Array<T>>(DataBase::ReadWriteAsync(task, dev, stream));
+    Array<T>& ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+        return *std::static_pointer_cast<Array<T>>(DataBase::ReadWriteAsync(task, dev, stream));
     }
 
-    ArrayPtr<T> Write(DevicePtr dev, size_t bytes) {
-        return std::static_pointer_cast<Array<T>>(DataBase::Write(dev, bytes));
+    Array<T>& Write(DevicePtr dev, size_t bytes) {
+        return *std::static_pointer_cast<Array<T>>(DataBase::Write(dev, bytes));
     }
 
-    ArrayPtr<T> Write(DevicePtr dev = Device::Current()) {
-        return std::static_pointer_cast<Array<T>>(DataBase::Write(dev));
+    Array<T>& Write(DevicePtr dev = Device::Current()) {
+        return *std::static_pointer_cast<Array<T>>(DataBase::Write(dev));
     }
 
     size_t size() const {

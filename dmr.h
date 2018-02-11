@@ -47,9 +47,9 @@ void ShuffleByIdx(DataPtr<T> dst, DataPtr<T> src, DataPtr<TOff> idx) {
         }
 
         virtual void Run(CPUWorker *cpu) override {
-            T *dst = dst_->Write(cpu->Device())->data();
-            T *src = src_->Read(cpu->Device())->data();
-            TOff *idx = idx_->Read(cpu->Device())->data();
+            auto &dst = dst_->Write(cpu->Device());
+            auto &src = src_->Read(cpu->Device());
+            auto &idx = idx_->Read(cpu->Device());
             for (int i = 0; i < dst_->size(); i++) {
                 dst[i] = src[idx[i]];
             }
@@ -57,10 +57,10 @@ void ShuffleByIdx(DataPtr<T> dst, DataPtr<T> src, DataPtr<TOff> idx) {
 
         virtual void Run(GPUWorker *gpu) override {
             std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
-            const T *src = src_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
-            const TOff *idx = idx_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
-            T *dst = dst_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream())->data();
-            shuffle_by_idx_gpu(dst, src, idx, src_->size(), gpu->Stream());
+            auto &src = src_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
+            auto &idx = idx_->ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
+            auto &dst = dst_->WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream());
+            shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), src_->size(), gpu->Stream());
         }
     };
     Engine::Get().AddTask<TaskShuffle>(dst, src, idx);
