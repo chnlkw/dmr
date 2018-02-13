@@ -41,7 +41,7 @@ public:
     }
 
     DevicePtr Device() const override {
-        return Device::Current();
+        return Device::CpuDevice();
     }
 
 };

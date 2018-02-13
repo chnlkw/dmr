@@ -76,10 +76,11 @@ public:
         Write(device, count * sizeof(T));
     }
 
-    Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(new DataBase()) {
+    explicit Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(new DataBase()) {
         size_t bytes = vec.size() * sizeof(T);
-        void *ptr = get()->Write(device, bytes)->data();
-        DataCopy(ptr, device->Id(), vec.data(), -1, bytes);
+//        void *ptr = get()->Write(device, bytes)->data();
+        Write(device, bytes);
+        DataCopy(data(), device->Id(), vec.data(), -1, bytes);
     }
 
     using value_type = T;
@@ -90,7 +91,7 @@ public:
         return ret;
     }
 
-    const Array<T> &ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+    const Array<T> &ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) const {
         data_ = nullptr;
         return *std::static_pointer_cast<Array<T>>(get()->ReadAsync(task, dev, stream));
     }
@@ -136,7 +137,12 @@ public:
 
     std::string ToString() const {
         std::ostringstream os;
-        os << "Data(" << "count=" << size();
+        const T *a = Read(Device::CpuDevice()).data();
+        os << "Data(" << "ptr=" << a << " count=" << size() << ":";
+        for (size_t i = 0; i < size(); i++)
+            os << a[i] << ',';
+        os << ")";
+
         return os.str();
     }
 
@@ -150,7 +156,7 @@ std::string to_string(const Data<T> &v) { return v.ToString(); }
 template<class T>
 std::string to_string(const std::vector<T> &v) {
     std::ostringstream os;
-    os << "(" << v.size() << " : ";
+    os << "vector(" << v.size() << " : ";
     for (auto x : v) os << x << ",";
     os << ") ";
     return os.str();

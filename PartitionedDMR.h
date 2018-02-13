@@ -102,20 +102,22 @@ public:
     template<class TValue>
     std::vector<Vector<TValue>> ShuffleValues(const std::vector<Vector<TValue>> &value_in) const {
         std::vector<Vector<TValue>> parted_values;
-//        printf("S1\n");
+        printf("S1\n");
         for (size_t i = 0; i < size_; i++) {
-//            std::cout << "values_in " << i << " " << std::to_string(value_in[i]) << std::endl;
+            std::cout << "values_in " << i << " " << std::to_string(value_in[i]) << std::endl;
             parted_values.push_back(dmr1_[i].template ShuffleValues<TValue>(value_in[i]));
-//            std::cout << "parted_values " << i << " " << std::to_string(parted_values.back()) << std::endl;
+            std::cout << "parted_values " << i << " " << std::to_string(parted_values.back()) << std::endl;
         }
 
-//        printf("S2\n");
+        printf("S2\n");
         auto shufed = alltoall_.ShuffleValues(parted_values);
 
         std::vector<Vector<TValue>> ret;
-//        printf("S3\n");
+        printf("S3\n");
         for (size_t i = 0; i < size_; i++) {
+            std::cout << "values_in " << i << " " << std::to_string(shufed[i]) << std::endl;
             ret.push_back(dmr3_[i].template ShuffleValues<TValue>(shufed[i]));
+            std::cout << "parted_values " << i << " " << std::to_string(ret.back()) << std::endl;
         }
 
         return std::move(ret);

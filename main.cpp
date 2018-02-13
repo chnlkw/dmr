@@ -12,7 +12,7 @@
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-std::uniform_int_distribution<uint32_t> dis(0, 1000);
+std::uniform_int_distribution<uint32_t> dis(0, 10);
 std::map<int, int> a;
 
 auto print = [](auto &x) { std::cout << " " << x; };
@@ -139,7 +139,7 @@ void test_dmr() {
 
     Device::UseCPU();
 
-#if 1
+#if 0
     if (true) {
         std::vector<int> keys = {1, 3, 4, 2, 5};
         DMR<int, data_constructor_t> dmr1(keys);
@@ -177,7 +177,7 @@ void test_dmr() {
 //    DMR<uint32_t> dmr(N, M);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 10; i++) {
         uint32_t k = dis(gen);
         uint32_t v = dis(gen);
         keys[i % N].push_back(k);
@@ -195,6 +195,7 @@ void test_dmr() {
     printf("Shufflevalues\n");
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
     printf("Shufflevalues ok\n");
+#if 0
     for (int i = 0; i < 5; i++) {
         Clock clk;
         auto r = dmr2.ShuffleValues<uint32_t>(d_values);
@@ -206,18 +207,21 @@ void test_dmr() {
         double speed = sum / t / (1LU << 30);
         printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
     }
+#endif
     Device::UseCPU();
 #else
     auto result = dmr.ShuffleValues<uint32_t>(values);
 #endif
 
+    while(Engine::Get().Tick());
     std::set<int> exist_keys;
-    for (size_t i = 0; i < dmr2.Size(); i++) {
-        auto keys = dmr2.Keys(i).Read().data();
-        auto offs = dmr2.Offs(i).Read().data();
-        auto values = result[i].Read().data();
-        for (size_t i = 0; i < dmr2.Keys(i).size(); i++) {
+    for (size_t par_id = 0; par_id < dmr2.Size(); par_id++) {
+        auto keys = dmr2.Keys(par_id).Read().data();
+        auto offs = dmr2.Offs(par_id).Read().data();
+        auto values = result[par_id].Read().data();
+        for (size_t i = 0; i < dmr2.Keys(par_id).size(); i++) {
             auto k = keys[i];
+            printf("par=%zu key=%d\n", i, k);
             if (exist_keys.count(k)) {
                 throw std::runtime_error("same key in different partitions");
             }
@@ -253,9 +257,10 @@ public:
     }
 
     virtual void Run(CPUWorker *cpu) override {
-        const T *a = a_.Read(cpu->Device()).data();
-        const T *b = b_.Read(cpu->Device()).data();
-        T *c = c_.Write(cpu->Device()).data();
+        printf("run cpu TaskAdd\n");
+        const T *a = a_.ReadAsync(shared_from_this(), cpu->Device(), 0).data();
+        const T *b = b_.ReadAsync(shared_from_this(), cpu->Device(), 0).data();
+        T *c = c_.WriteAsync(shared_from_this(), cpu->Device(), 0).data();
         for (int i = 0; i < c_.size(); i++) {
             c[i] = a[i] + b[i];
         }
@@ -275,7 +280,7 @@ void test_engine() {
     auto &engine = Engine::Get();
 
     auto print = [](const auto &arr) {
-        printf("%p : \n", &arr[0]);
+        printf("%p : ", &arr[0]);
         for (int i = 0; i < arr.size(); i++) {
             printf("%d ", arr[i]);
         }
@@ -303,7 +308,7 @@ void test_engine() {
 
     engine.AddTask(t2);
 
-//    while (engine.Tick());
+    while (engine.Tick());
     t2->WaitFinish();
     print(a1);
     print(a2);
@@ -323,6 +328,7 @@ int main() {
 //
 //    CPUWorker cpu_worker;
 
+#if 0
     std::vector<DevicePtr> gpu_devices;
     std::vector<WorkerPtr> gpu_workers;
     for (int i = 0; i < Device::NumGPUs(); i++) {
@@ -333,10 +339,14 @@ int main() {
         printf("i=%d workerid = %d\n", i, gpu_workers.back()->Device()->Id());
     }
 
-    Engine::Create({gpu_workers.begin(), gpu_workers.end()});
-//    Engine::Create({std::make_shared<CPUWorker>()});
-    test_dmr();
+//    Engine::Create({gpu_workers.begin(), gpu_workers.end()});
+#else
+    std::vector<WorkerPtr> cpu_workers;
+    cpu_workers.emplace_back(new CPUWorker());
+    Engine::Create({cpu_workers.begin(), cpu_workers.end()});
+#endif
 //    test_engine();
+    test_dmr();
 
     Engine::Finish();
 }

@@ -44,11 +44,47 @@ void Copy(const std::vector<T> &src, size_t src_off, std::vector<T> &dst, size_t
 
 template<class T>
 void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size_t count) {
+
+    class TaskCopy : public TaskBase {
+        const Data<T> src_;
+        Data<T> dst_;
+        size_t src_off_, dst_off_, count_;
+    public:
+        TaskCopy(Engine &engine, const Data<T> src, size_t src_off, Data<T> dst, size_t dst_off, size_t count) :
+                TaskBase(engine),
+                src_(src),
+                src_off_(src_off),
+                dst_(dst),
+                dst_off_(dst_off),
+                count_(count) {
+            AddInput(src);
+            AddOutput(dst);
+        }
+
+        virtual void Run(CPUWorker *cpu) override {
+            const T *src = src_.ReadAsync(shared_from_this(), Device::CpuDevice(), 0).data();
+            T *dst = dst_.WriteAsync(shared_from_this(), Device::CpuDevice(), 0).data();
+            std::cout << "Run on CPU TaskCopy " << dst + dst_off_ << " <- " << src + src_off_ << std::endl;
+            memcpy(dst + dst_off_, src + src_off_, count_ * sizeof(T));
+        }
+
+        virtual void Run(GPUWorker *gpu) override {
+            std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
+            const T *src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
+            T *dst = dst_.ReadWriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
+            DataCopyAsync(dst + dst_off_, gpu->Device()->Id(), src + src_off_, gpu->Device()->Id(), count_ * sizeof(T),
+                          gpu->Stream());
+        }
+    };
 //    std::cout << "copy " << src.ToString() << " to " << dst.ToString() << std::endl;
-    DataCopy(dst.begin() + dst_off, dst.DeviceCurrent()->Id(),
-             src.begin() + src_off, src.DeviceCurrent()->Id(),
-             count * sizeof(T));
+//    DataCopy(dst.begin() + dst_off, dst.DeviceCurrent()->Id(),
+//             src.begin() + src_off, src.DeviceCurrent()->Id(),
+//             count * sizeof(T));
 //    std::copy(src.begin() + src_off, src.begin() + src_off + count, dst.begin() + dst_off);
+    Engine::Get().AddTask<TaskCopy>(
+            src, src_off,
+            dst, dst_off,
+            count);
 }
 
 }

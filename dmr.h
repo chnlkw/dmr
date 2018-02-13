@@ -47,9 +47,9 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
         }
 
         virtual void Run(CPUWorker *cpu) override {
-            auto &dst = dst_.Write(cpu->Device());
-            auto &src = src_.Read(cpu->Device());
-            auto &idx = idx_.Read(cpu->Device());
+            auto &dst = dst_.WriteAsync(shared_from_this(), cpu->Device(), 0);
+            auto &src = src_.ReadAsync(shared_from_this(), cpu->Device(), 0);
+            auto &idx = idx_.ReadAsync(shared_from_this(), cpu->Device(), 0);
             for (int i = 0; i < dst_.size(); i++) {
                 dst[i] = src[idx[i]];
             }
@@ -115,9 +115,9 @@ public:
         reducer_keys.shrink_to_fit();
         reducer_offs.shrink_to_fit();
 
-        reducer_keys_ = std::move(reducer_keys);
-        reducer_offs_ = std::move(reducer_offs);
-        gather_indices_ = std::move(gather_indices);
+        reducer_keys_ = Vector<TKey>(std::move(reducer_keys));
+        reducer_offs_ = Vector<TOff>(std::move(reducer_offs));
+        gather_indices_ = Vector<TOff>(std::move(gather_indices));
     }
 
     template<class Cons>

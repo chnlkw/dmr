@@ -69,4 +69,5 @@ protected:
 
 };
 
+
 #endif //DMR_TASK_H
