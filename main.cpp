@@ -177,7 +177,7 @@ void test_dmr() {
 //    DMR<uint32_t> dmr(N, M);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1000; i++) {
         uint32_t k = dis(gen);
         uint32_t v = dis(gen);
         keys[i % N].push_back(k);
@@ -328,7 +328,7 @@ int main() {
 //
 //    CPUWorker cpu_worker;
 
-#if 0
+#if 1
     std::vector<DevicePtr> gpu_devices;
     std::vector<WorkerPtr> gpu_workers;
     for (int i = 0; i < Device::NumGPUs(); i++) {
@@ -339,7 +339,7 @@ int main() {
         printf("i=%d workerid = %d\n", i, gpu_workers.back()->Device()->Id());
     }
 
-//    Engine::Create({gpu_workers.begin(), gpu_workers.end()});
+    Engine::Create({gpu_workers.begin(), gpu_workers.end()});
 #else
     std::vector<WorkerPtr> cpu_workers;
     cpu_workers.emplace_back(new CPUWorker());

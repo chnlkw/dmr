@@ -24,10 +24,6 @@ ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) 
 
 ArrayBasePtr DataBase::State::WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old, size_t cur_bytes) {
     bytes = cur_bytes;
-    if (bytes == 0) {
-        return {};
-    }
-    assert(bytes > 0);
     // invalid other replicas
     for (auto it = replicas.begin(); it != replicas.end();) {
         if (it->first != dev) {
@@ -63,7 +59,6 @@ ArrayBasePtr DataBase::ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t strea
 }
 
 ArrayBasePtr DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
-    assert(bytes > 0);
     ArrayBasePtr arr = last_state_.WriteAt(dev, stream, false, bytes);
     return arr;
 }

@@ -57,7 +57,6 @@ void ArrayBase::Free() {
 }
 
 void ArrayBase::Allocate(size_t bytes) {
-//    Free();
     bytes_ = bytes;
     if (bytes > 0) {
         owned_ = true;

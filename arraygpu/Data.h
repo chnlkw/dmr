@@ -76,12 +76,11 @@ public:
         Write(device, count * sizeof(T));
     }
 
-    explicit Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(new DataBase()) {
+    explicit Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(
+            new DataBase()) {
         size_t bytes = vec.size() * sizeof(T);
-//        void *ptr = get()->Write(device, bytes)->data();
         Write(device, bytes);
-        if (bytes > 0)
-            DataCopy(data(), device->Id(), vec.data(), -1, bytes);
+        DataCopy(data(), device->Id(), vec.data(), -1, bytes);
     }
 
     using value_type = T;
