@@ -80,7 +80,8 @@ public:
         size_t bytes = vec.size() * sizeof(T);
 //        void *ptr = get()->Write(device, bytes)->data();
         Write(device, bytes);
-        DataCopy(data(), device->Id(), vec.data(), -1, bytes);
+        if (bytes > 0)
+            DataCopy(data(), device->Id(), vec.data(), -1, bytes);
     }
 
     using value_type = T;

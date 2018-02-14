@@ -221,7 +221,7 @@ void test_dmr() {
         auto values = result[par_id].Read().data();
         for (size_t i = 0; i < dmr2.Keys(par_id).size(); i++) {
             auto k = keys[i];
-            printf("par=%zu key=%d\n", i, k);
+            printf("par=%zu key=%d\n", par_id, k);
             if (exist_keys.count(k)) {
                 throw std::runtime_error("same key in different partitions");
             }
