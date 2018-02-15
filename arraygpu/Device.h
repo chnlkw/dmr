@@ -67,6 +67,7 @@ public:
     }
 
     static DevicePtr UseCPU() { return current = cpu; }
+
     static DevicePtr CpuDevice() { return cpu; }
 
     static void Use(DevicePtr dev) {
@@ -74,24 +75,29 @@ public:
     }
 
     static int NumGPUs() {
+
+#ifdef USE_CUDA
         int count;
         CUDA_CALL(cudaGetDeviceCount, &count);
         return count;
+#else
+        return 0;
+#endif
     }
 
 };
 
-template <class V>
-DevicePtr GetDevice(const V& v);
-
-template <class T>
-DevicePtr GetDevice(const std::vector<T>& v) {
-    return Device::CpuDevice();
-}
-
-template <class T>
-DevicePtr GetDevice(const Data<T>& v) {
-    return v.DeviceCurrent();
-}
+//template<class V>
+//DevicePtr GetDevice(const V &v);
+//
+//template<class T>
+//DevicePtr GetDevice(const std::vector<T> &v) {
+//    return Device::CpuDevice();
+//}
+//
+//template<class T>
+//DevicePtr GetDevice(const Data<T> &v) {
+//    return v.DeviceCurrent();
+//}
 
 #endif //DMR_DEVICE_H

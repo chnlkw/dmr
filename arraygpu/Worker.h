@@ -82,7 +82,7 @@ private:
             e = events_unused_.back();
             events_unused_.pop_back();
         } else {
-            cudaEventCreate(&e);
+            CUDA_CALL(cudaEventCreate, &e);
         }
 
 //        for (DataBasePtr d : t->GetInputs())
@@ -91,11 +91,12 @@ private:
 //            d->WriteAsync(t, gpu_, stream_);
 
         t->Run(this);
-        cudaEventRecord(e, stream_);
+        CUDA_CALL(cudaEventRecord, e, stream_);
         queue_.emplace_back(e, t);
     }
 
     std::vector<TaskPtr> GetCompleteTasks() override {
+#ifdef USE_CUDA
         std::vector<TaskPtr> ret;
         if (Empty())
             return ret;
@@ -117,6 +118,9 @@ private:
             }
         }
         return ret;
+#else
+        return {};
+#endif
     }
 
 };

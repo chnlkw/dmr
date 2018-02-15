@@ -3,6 +3,7 @@
 //
 
 #include "Data.h"
+#include <cassert>
 
 ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) {
     if (replicas.count(dev) == 0) {

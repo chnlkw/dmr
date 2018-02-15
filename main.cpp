@@ -328,7 +328,7 @@ int main() {
 //
 //    CPUWorker cpu_worker;
 
-#if 1
+#if USE_CUDA
     std::vector<DevicePtr> gpu_devices;
     std::vector<WorkerPtr> gpu_workers;
     for (int i = 0; i < Device::NumGPUs(); i++) {

@@ -10,6 +10,7 @@
 #include <memory>
 #include <deque>
 #include <sstream>
+#include <functional>
 
 #include "cuda_utils.h"
 #include "defs.h"

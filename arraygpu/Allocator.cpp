@@ -4,6 +4,8 @@
 
 #include "Allocator.h"
 
+#ifdef USE_CUDA
+
 int UnifiedAllocator::GetDevice() {
     return device_;
 }
@@ -24,3 +26,5 @@ void *UnifiedAllocator::Alloc(size_t size) {
 void UnifiedAllocator::Free(void *ptr) {
     allocator_.Free(ptr);
 }
+
+#endif

@@ -65,7 +65,7 @@ void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size
             const T *src = src_.ReadAsync(shared_from_this(), Device::CpuDevice(), 0).data();
             T *dst = dst_.WriteAsync(shared_from_this(), Device::CpuDevice(), 0).data();
             std::cout << "Run on CPU TaskCopy " << dst + dst_off_ << " <- " << src + src_off_ << std::endl;
-            memcpy(dst + dst_off_, src + src_off_, count_ * sizeof(T));
+            DataCopy(dst + dst_off_, -1, src + src_off_, -1, count_ * sizeof(T));
         }
 
         virtual void Run(GPUWorker *gpu) override {

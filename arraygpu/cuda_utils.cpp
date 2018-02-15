@@ -4,6 +4,8 @@
 
 #include "cuda_utils.h"
 
+#ifdef USE_CUDA
+
 #define REPORT_CUDA_SUCCESS 0
 
 bool cudaEnsureSuccess(cudaError_t status, const char *status_context_description,
@@ -41,3 +43,5 @@ bool cudaEnsureSuccess(cudaError_t status, const char *status_context_descriptio
     return false;
 
 }
+
+#endif

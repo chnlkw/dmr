@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_CUDA
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cstring>
@@ -27,3 +29,14 @@
 bool cudaEnsureSuccess(cudaError_t status, const char *status_context_description,
                        bool die_on_error, const char *filename, unsigned line_number);
 
+
+#else
+
+using cudaStream_t = void *;
+using cudaEvent_t = void *;
+
+#define CUDA_CALL(cuda_function, ...)  { }
+
+#define CUDA_CHECK() { }
+
+#endif

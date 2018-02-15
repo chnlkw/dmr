@@ -3,6 +3,9 @@
 //
 
 #include "DataCopy.h"
+#include <cassert>
+#include <cstring>
+#include <iostream>
 
 std::map<int, std::map<int, bool>> data_copy_p2p;
 
@@ -31,7 +34,7 @@ DataCopyAsync(void *dst_ptr, int dst_device, const void *src_ptr, int src_device
 //                std::cout << dst_device << " <- " << src_device << std::endl;
     if (src_device < 0) {
         if (dst_device < 0) { //src CPU dst CPU
-            cudaStreamSynchronize(stream);
+            CUDA_CALL(cudaStreamSynchronize, stream);
             memcpy(dst_ptr, src_ptr, bytes);
         } else { // src CPU dst GPU
             CUDA_CALL(cudaMemcpyAsync, dst_ptr, src_ptr, bytes, cudaMemcpyHostToDevice, stream);
@@ -50,14 +53,14 @@ DataCopyAsync(void *dst_ptr, int dst_device, const void *src_ptr, int src_device
 
 void DataCopyInitP2P() {
     int num_gpus;
-    cudaGetDeviceCount(&num_gpus);
+    CUDA_CALL(cudaGetDeviceCount, &num_gpus);
     for (int i = 0; i < num_gpus; i++) {
-        cudaSetDevice(i);
+        CUDA_CALL(cudaSetDevice, i);
         for (int j = 0; j < num_gpus; j++) {
             int access;
-            cudaDeviceCanAccessPeer(&access, i, j);
+            CUDA_CALL(cudaDeviceCanAccessPeer, &access, i, j);
             if (access) {
-                cudaDeviceEnablePeerAccess(j, 0);
+                CUDA_CALL(cudaDeviceEnablePeerAccess, j, 0);
                 data_copy_p2p[i][j] = true;
                 std::cout << "can p2p " << i << ' ' << j << std::endl;
                 CUDA_CHECK();
