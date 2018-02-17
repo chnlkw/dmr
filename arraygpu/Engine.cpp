@@ -2,7 +2,10 @@
 // Created by chnlkw on 11/28/17.
 //
 
+#include <easylogging++.h>
 #include "Engine.h"
+
+#define LG(x) CLOG(x, "Engine")
 
 std::unique_ptr<Engine> Engine::engine;
 
@@ -47,7 +50,7 @@ ArrayBasePtr DataBase::ReadWrite(DevicePtr dev) {
 void Engine::AddEdge(TaskPtr src, TaskPtr dst) {
     if (src->finished)
         return;
-    printf("AddEdge %p (%d) -> %p\n", src.get(), src->finished, dst.get());
+    LG(INFO) << "AddEdge " << src.get() << " -> " << dst.get();
     tasks_[src].next_tasks_.push_back(dst);
     tasks_[dst].in_degree++;
 }
@@ -67,8 +70,8 @@ bool Engine::Tick() {
         }
         auto tasks = w->GetCompleteTasks();
         for (auto &t : tasks) {
-            std::cout << "FinishTask " << t.get() << std::endl;
             FinishTask(t);
+            LG(INFO) << "Finish task " << *t;
         }
     }
     if (ready_tasks_.empty() && empty_workers_ == workers_.size()) {
@@ -90,7 +93,6 @@ WorkerPtr Engine::ChooseWorker(TaskPtr t) {
     } else {
         w = *workers_.begin();
     }
-//    printf("choose worker id = %d\n", w->Device()->Id());
     return std::move(w);
 }
 
@@ -109,7 +111,7 @@ void Engine::FinishTask(TaskPtr task) {
 }
 
 TaskBase &Engine::AddTask(TaskPtr task) {
-    printf("AddTask %p\n", task.get());
+    LG(INFO) << *task;
     for (auto &d : task->GetInputs()) {
         d->AddTask(task);
         DataNode &data = data_[d];
@@ -121,7 +123,7 @@ TaskBase &Engine::AddTask(TaskPtr task) {
         d->AddTask(task);
         DataNode &data = data_[d];
         if (data.writer && data.readers.empty()) {
-            fprintf(stderr, "Data written twice but no readers between them\n");
+//            fprintf(stderr, "Data written twice but no readers between them\n");
         }
         for (const auto &r : data.readers)
             AddEdge(r, task);
@@ -133,6 +135,7 @@ TaskBase &Engine::AddTask(TaskPtr task) {
 }
 
 void Engine::Create(std::set<WorkerPtr> workers) {
+    LG(INFO) << "Engine Create with " << workers.size() << " workers";
     engine.reset(new Engine(std::move(workers)));
 }
 

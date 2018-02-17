@@ -13,13 +13,13 @@ if (CUDA_FOUND)
     #    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --maxrregcount 64)
 endif ()
 
+include_directories(logging)
 include_directories(arraygpu)
-
 
 aux_source_directory(arraygpu lib_src)
 MESSAGE("lib_src = ${lib_src}")
 
-add_library(dmr ${lib_src})
+add_library(dmr ${lib_src} logging/easylogging++.cc)
 
 add_executable(main main.cpp)
 
@@ -29,3 +29,5 @@ if (CUDA_FOUND)
     cuda_add_library(dmr_kernel arraygpu/Kernels.cu)
     target_link_libraries(main dmr_kernel)
 endif ()
+
+configure_file(logging/logging.conf logging.conf)

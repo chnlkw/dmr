@@ -6,6 +6,7 @@
 #define LDA_DEFS_H
 
 #include <memory>
+#include "easylogging++.h"
 
 class ArrayBase;
 

@@ -10,6 +10,8 @@
 #include "dmr.h"
 #include "PartitionedDMR.h"
 
+#include "easylogging++.h"
+
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
 std::uniform_int_distribution<uint32_t> dis(0, 10);
@@ -247,7 +249,7 @@ class TaskAdd : public TaskBase {
     Data<T> a_, b_, c_;
 public:
     TaskAdd(Engine &engine, Data<T> a, Data<T> b, Data<T> c) :
-            TaskBase(engine),
+            TaskBase(engine, "Add"),
             a_(a), b_(b), c_(c) {
         assert(a.size() == b.size());
         assert(a.size() == c.size());
@@ -257,7 +259,7 @@ public:
     }
 
     virtual void Run(CPUWorker *cpu) override {
-        printf("run cpu TaskAdd\n");
+        LOG(INFO) << "run cpu TaskAdd";
         const T *a = a_.ReadAsync(shared_from_this(), cpu->Device(), 0).data();
         const T *b = b_.ReadAsync(shared_from_this(), cpu->Device(), 0).data();
         T *c = c_.WriteAsync(shared_from_this(), cpu->Device(), 0).data();
@@ -267,7 +269,7 @@ public:
     }
 
     virtual void Run(GPUWorker *gpu) override {
-        std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
+        LOG(INFO) << "run TaskAdd on gpu" << gpu->Device()->Id();
         const T *a = a_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
         const T *b = b_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
         T *c = c_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
@@ -321,12 +323,19 @@ void test_engine() {
 
 }
 
+INITIALIZE_EASYLOGGINGPP
+
 int main() {
+    el::Loggers::configureFromGlobal("logging.conf");
+    LOG(INFO) << "info";
+    CLOG(INFO, "Engine") << "engine info";
+
 //    std::vector<GPUWorker> gpu_workers;
 //    for (int i = 0; i < Device::NumGPUs(); i++)
 //        gpu_workers.emplace_back(i);
 //
 //    CPUWorker cpu_worker;
+    LOG(INFO) << "start";
 
 #if USE_CUDA
     std::vector<DevicePtr> gpu_devices;
@@ -345,8 +354,8 @@ int main() {
     cpu_workers.emplace_back(new CPUWorker());
     Engine::Create({cpu_workers.begin(), cpu_workers.end()});
 #endif
-//    test_engine();
-    test_dmr();
+    test_engine();
+//    test_dmr();
 
     Engine::Finish();
 }

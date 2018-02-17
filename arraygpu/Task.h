@@ -13,7 +13,7 @@
 #include "defs.h"
 #include "Data.h"
 
-class TaskBase : public std::enable_shared_from_this<TaskBase> {
+class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Loggable {
     TaskBase(const TaskBase &) = delete;
 
     std::vector<DataBasePtr> inputs_;
@@ -24,6 +24,8 @@ class TaskBase : public std::enable_shared_from_this<TaskBase> {
     Engine &engine_;
 
     friend class Engine;
+
+    std::string name_;
 
 public:
     virtual ~TaskBase() {}
@@ -52,8 +54,17 @@ public:
 
     void WaitFinish();
 
+    virtual std::string Name() const { return name_; }
+
+    virtual void log(el::base::type::ostream_t &os) const {
+        os << "[Task]" << Name();
+        if (finished) os << " Finished";
+    }
+
+
 protected:
-    TaskBase(Engine &engine) : engine_(engine) {}
+    TaskBase(Engine &engine, std::string name = "Task") :
+            engine_(engine), name_(name) {}
 
     void AddInput(DataBasePtr data) {
         inputs_.push_back(data);
