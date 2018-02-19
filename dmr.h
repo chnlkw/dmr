@@ -56,7 +56,6 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
         }
 
         virtual void Run(GPUWorker *gpu) override {
-            std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
             auto &src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
             auto &idx = idx_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
             auto &dst = dst_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream());

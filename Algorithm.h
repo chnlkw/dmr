@@ -51,7 +51,7 @@ void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size
         size_t src_off_, dst_off_, count_;
     public:
         TaskCopy(Engine &engine, const Data<T> src, size_t src_off, Data<T> dst, size_t dst_off, size_t count) :
-                TaskBase(engine),
+                TaskBase(engine, "Copy"),
                 src_(src),
                 src_off_(src_off),
                 dst_(dst),
@@ -64,12 +64,12 @@ void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size
         virtual void Run(CPUWorker *cpu) override {
             const T *src = src_.ReadAsync(shared_from_this(), Device::CpuDevice(), 0).data();
             T *dst = dst_.WriteAsync(shared_from_this(), Device::CpuDevice(), 0).data();
-            std::cout << "Run on CPU TaskCopy " << dst + dst_off_ << " <- " << src + src_off_ << std::endl;
+//            std::cout << "Run on CPU TaskCopy " << dst + dst_off_ << " <- " << src + src_off_ << std::endl;
             DataCopy(dst + dst_off_, -1, src + src_off_, -1, count_ * sizeof(T));
         }
 
         virtual void Run(GPUWorker *gpu) override {
-            std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
+//            std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
             const T *src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
             T *dst = dst_.ReadWriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
             DataCopyAsync(dst + dst_off_, gpu->Device()->Id(), src + src_off_, gpu->Device()->Id(), count_ * sizeof(T),

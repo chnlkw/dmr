@@ -21,11 +21,11 @@ auto print = [](auto &x) { std::cout << " " << x; };
 auto self = [](auto x) { return x; };
 
 namespace std {
-template<class K, class V>
-std::ostream &operator<<(std::ostream &os, const std::pair<K, V> &p) {
-    os << "(" << p.first << "," << p.second << ")";
-    return os;
-};
+    template<class K, class V>
+    std::ostream &operator<<(std::ostream &os, const std::pair<K, V> &p) {
+        os << "(" << p.first << "," << p.second << ")";
+        return os;
+    };
 }
 
 //template<class Idx, class Val, class Target>
@@ -175,7 +175,7 @@ void test_dmr() {
 #endif
 
 #if 1
-    int N = 4;
+    int N = 2;
 //    DMR<uint32_t> dmr(N, M);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
@@ -194,9 +194,9 @@ void test_dmr() {
         d_values.emplace_back(values[i]);
     }
 
-    printf("Shufflevalues\n");
+    LOG(INFO) << "Shufflevalues";
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
-    printf("Shufflevalues ok\n");
+    LOG(INFO) << "Shufflevalues OK";
 #if 0
     for (int i = 0; i < 5; i++) {
         Clock clk;
@@ -215,7 +215,7 @@ void test_dmr() {
     auto result = dmr.ShuffleValues<uint32_t>(values);
 #endif
 
-    while(Engine::Get().Tick());
+    while (Engine::Get().Tick());
     std::set<int> exist_keys;
     for (size_t par_id = 0; par_id < dmr2.Size(); par_id++) {
         auto keys = dmr2.Keys(par_id).Read().data();
@@ -223,7 +223,6 @@ void test_dmr() {
         auto values = result[par_id].Read().data();
         for (size_t i = 0; i < dmr2.Keys(par_id).size(); i++) {
             auto k = keys[i];
-            printf("par=%zu key=%d\n", par_id, k);
             if (exist_keys.count(k)) {
                 throw std::runtime_error("same key in different partitions");
             }
@@ -236,7 +235,7 @@ void test_dmr() {
     }
     for (auto x : a) {
         if (x.second != 0) {
-            fprintf(stderr, "key %d not match %d\n", x.first, x.second);
+            LOG(ERROR) << "key not match" << x.first << " " << x.second;
             abort();
         }
     }
@@ -355,7 +354,7 @@ int main() {
     Engine::Create({cpu_workers.begin(), cpu_workers.end()});
 #endif
     test_engine();
-//    test_dmr();
+    test_dmr();
 
     Engine::Finish();
 }

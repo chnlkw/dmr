@@ -64,13 +64,13 @@ public:
         std::vector<Vec> value_out;
         for (size_t i = 0; i < size_; i++) {
             assert(value_in[i].size() == send_sum_[i]);
-            std::cout << "val_in " << i << " " << std::to_string(value_in[i]) << std::endl;
+//            std::cout << "val_in " << i << " " << std::to_string(value_in[i]) << std::endl;
             value_out.emplace_back(recv_sum_[i]);
             assert(value_out.back().size() == recv_sum_[i]);
         }
         for (size_t i = 0; i < size_; i++) {
             for (size_t j = 0; j < size_; j++) {
-                printf(" i %zu , j %zu\n", i, j);
+//                printf(" i %zu , j %zu\n", i, j);
                 Algorithm::Copy(value_in[j], send_offs_[j][i], value_out[i], recv_offs_[i][j], send_counts_[j][i]);
 
 //                auto src_beg = value_in[j].begin() + send_offs_[j][i];
@@ -80,9 +80,9 @@ public:
             }
         }
 //        while (Engine::Get().Tick());
-        for (size_t i = 0; i < size_; i++) {
-            std::cout << "val_out " << i << " " << std::to_string(value_out[i]) << std::endl;
-        }
+//        for (size_t i = 0; i < size_; i++) {
+//            std::cout << "val_out " << i << " " << std::to_string(value_out[i]) << std::endl;
+//        }
         return std::move(value_out);
     }
 };
