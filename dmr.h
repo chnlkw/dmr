@@ -37,7 +37,7 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
         Data<TOff> idx_;
 
         TaskShuffle(Engine &engine, Data<T> dst, Data<T> src, Data<TOff> idx) :
-                TaskBase(engine),
+                TaskBase(engine, "Shuffle"),
                 dst_(dst), src_(src), idx_(idx) {
             assert(dst.size() == src.size());
             assert(dst.size() == idx.size());

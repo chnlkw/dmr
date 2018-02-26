@@ -55,11 +55,15 @@ ArrayBasePtr DataBase::ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t 
 }
 
 ArrayBasePtr DataBase::ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+//    tasks_writing_.clear();
+//    tasks_reading_.push_back(task);
     ArrayBasePtr arr = last_state_.ReadAt(dev, stream);
     return arr;
 }
 
 ArrayBasePtr DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
+//    tasks_reading_.clear();
+//    tasks_writing_.push_back(task);
     ArrayBasePtr arr = last_state_.WriteAt(dev, stream, false, bytes);
     return arr;
 }

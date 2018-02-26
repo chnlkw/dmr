@@ -19,9 +19,29 @@ class Engine {
     std::map<TaskPtr, Node> tasks_;
 
     struct DataNode {
-        TaskPtr writer;
+        bool writing = false;
+        std::vector<TaskPtr> writers;
         std::vector<TaskPtr> readers;
+
+        const std::vector<TaskPtr> &ReadBy(TaskPtr t) {
+            if (writing) {
+                writing = false;
+                readers.clear();
+            }
+            readers.push_back(t);
+            return writers;
+        }
+
+        const std::vector<TaskPtr> &WriteBy(TaskPtr t) {
+            if (!writing) {
+                writing = true;
+                writers.clear();
+            }
+            writers.push_back(t);
+            return readers;
+        }
     };
+
     std::map<DataBasePtr, DataNode> data_;
     std::set<WorkerPtr> workers_;
     std::vector<TaskPtr> ready_tasks_;

@@ -8,21 +8,31 @@
 #include "Task.h"
 #include "cuda_utils.h"
 
-class WorkerBase {
+class WorkerBase : public el::Loggable {
+protected:
+    DevicePtr device_;
 public:
+    WorkerBase(DevicePtr d) : device_(d) {
+    }
+
     virtual void RunTask(TaskPtr t) = 0;
 
     virtual std::vector<TaskPtr> GetCompleteTasks() = 0;
 
     virtual bool Empty() const = 0;
 
-    virtual DevicePtr Device() const = 0;
+    DevicePtr Device() const {
+        return device_;
+    }
+    virtual void log(el::base::type::ostream_t &os) const {
+        os << "Worker[" << *device_ << "]";
+    }
 };
 
 class CPUWorker : public WorkerBase {
     std::deque<TaskPtr> tasks_;
 public:
-    CPUWorker() {}
+    CPUWorker() : WorkerBase(Device::CpuDevice()) {}
 
     void RunTask(TaskPtr t) override {
         tasks_.push_back(t);
@@ -40,14 +50,9 @@ public:
         return ret;
     }
 
-    DevicePtr Device() const override {
-        return Device::CpuDevice();
-    }
-
 };
 
 class GPUWorker : public WorkerBase {
-    std::shared_ptr<GPUDevice> gpu_;
     cudaStream_t stream_;
 
     std::vector<cudaEvent_t> events_unused_;
@@ -55,8 +60,8 @@ class GPUWorker : public WorkerBase {
 
 public:
     GPUWorker(std::shared_ptr<GPUDevice> gpu) :
-            gpu_(gpu) {
-        printf("gpu worker id = %d\n", gpu->Id());
+            WorkerBase(gpu) {
+        CLOG(INFO, "Worker") << "Create GPU Worker with device = " << gpu->Id();
         CUDA_CALL(cudaSetDevice, gpu->Id());
         CUDA_CALL(cudaStreamCreate, &stream_);
     }
@@ -69,14 +74,11 @@ public:
         return stream_;
     }
 
-    DevicePtr Device() const override {
-        return gpu_;
-    }
-
 private:
 
     void RunTask(TaskPtr t) override {
-        CUDA_CALL(cudaSetDevice, gpu_->Id());
+        GPUDevice &gpu = *std::static_pointer_cast<GPUDevice>(device_);
+        CUDA_CALL(cudaSetDevice, gpu.Id());
         cudaEvent_t e;
         if (events_unused_.size() > 0) {
             e = events_unused_.back();
@@ -90,6 +92,7 @@ private:
 //        for (DataBasePtr d : t->GetOutputs())
 //            d->WriteAsync(t, gpu_, stream_);
 
+        CLOG(INFO, "Worker") << "Device " << gpu.Id() << " Run Task " << t->Name();
         t->Run(this);
         CUDA_CALL(cudaEventRecord, e, stream_);
         queue_.emplace_back(e, t);

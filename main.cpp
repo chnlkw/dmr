@@ -14,7 +14,7 @@
 
 std::random_device rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-std::uniform_int_distribution<uint32_t> dis(0, 10);
+std::uniform_int_distribution<uint32_t> dis(1, 9);
 std::map<int, int> a;
 
 auto print = [](auto &x) { std::cout << " " << x; };
@@ -179,7 +179,7 @@ void test_dmr() {
 //    DMR<uint32_t> dmr(N, M);
 
     std::vector<std::vector<uint32_t>> keys(N), values(N);
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 20; i++) {
         uint32_t k = dis(gen);
         uint32_t v = dis(gen);
         keys[i % N].push_back(k);
@@ -216,6 +216,10 @@ void test_dmr() {
 #endif
 
     while (Engine::Get().Tick());
+
+    for (auto &v : result) {
+        LOG(DEBUG) << "result " << v.ToString();
+    }
     std::set<int> exist_keys;
     for (size_t par_id = 0; par_id < dmr2.Size(); par_id++) {
         auto keys = dmr2.Keys(par_id).Read().data();
@@ -268,7 +272,7 @@ public:
     }
 
     virtual void Run(GPUWorker *gpu) override {
-        LOG(INFO) << "run TaskAdd on gpu" << gpu->Device()->Id();
+        LOG(INFO) << "run TaskAdd on gpu " << gpu->Device()->Id();
         const T *a = a_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
         const T *b = b_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
         T *c = c_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
@@ -341,10 +345,9 @@ int main() {
     std::vector<WorkerPtr> gpu_workers;
     for (int i = 0; i < Device::NumGPUs(); i++) {
         auto d = std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30));
-        std::cout << d->Id() << std::endl;
         gpu_devices.push_back(d);
-        gpu_workers.emplace_back(new GPUWorker(d));
-        printf("i=%d workerid = %d\n", i, gpu_workers.back()->Device()->Id());
+        gpu_workers.push_back(std::make_shared<GPUWorker>(d));
+        d->RegisterWorker(gpu_workers.back());
     }
 
     Engine::Create({gpu_workers.begin(), gpu_workers.end()});
@@ -355,6 +358,11 @@ int main() {
 #endif
     test_engine();
     test_dmr();
+
+    for (auto d : gpu_devices) {
+        Device::Use(d);
+        CUDA_CHECK();
+    }
 
     Engine::Finish();
 }

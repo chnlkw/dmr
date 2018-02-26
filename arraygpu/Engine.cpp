@@ -50,7 +50,7 @@ ArrayBasePtr DataBase::ReadWrite(DevicePtr dev) {
 void Engine::AddEdge(TaskPtr src, TaskPtr dst) {
     if (src->finished)
         return;
-    LG(INFO) << "AddEdge " << src.get() << " -> " << dst.get();
+    LG(INFO) << "AddEdge " << *src << " -> " << *dst;
     tasks_[src].next_tasks_.push_back(dst);
     tasks_[dst].in_degree++;
 }
@@ -60,6 +60,7 @@ Engine::Engine(std::set<WorkerPtr> workers) :
 }
 
 bool Engine::Tick() {
+    LG(INFO) << "Tick";
 //    std::cout << "Tick " << std::endl;
     size_t empty_workers_ = 0;
     for (auto w : workers_) {
@@ -79,6 +80,7 @@ bool Engine::Tick() {
     }
     for (auto t : ready_tasks_) {
 //        std::cout << "Engine Run Task " << std::endl;
+        LOG(INFO) << "Choose worker of task " << *t;
         WorkerPtr w = ChooseWorker(t);
         w->RunTask(t);
     }
@@ -87,13 +89,37 @@ bool Engine::Tick() {
 }
 
 WorkerPtr Engine::ChooseWorker(TaskPtr t) {
-    WorkerPtr w;
-    if (t->worker_prefered_.size()) {
-        w = *(t->worker_prefered_.begin());
-    } else {
-        w = *workers_.begin();
+//    if (t->worker_prefered_.size()) {
+//        return *(t->worker_prefered_.begin());
+//    } else {
+    for (auto &m : t->GetMetas()) {
+        LG(DEBUG) << m << " replicas " << m.data->last_state_.replicas.size();
+        for (auto dev_arr : m.data->last_state_.replicas) {
+            DevicePtr dev = dev_arr.first;
+            WorkerPtr worker_choosed;
+            for (auto ww : dev->Workers()) {
+                WorkerPtr w = ww.lock();
+                if (w && !worker_choosed)
+                    worker_choosed = w;
+                if (w->Empty()) {
+                    LG(INFO) << "Task " << *t << " chooses worker " << *w << " by affinity and empty";
+                    return w;
+                }
+            }
+            if (worker_choosed) {
+                LG(INFO) << "Task " << *t << " chooses worker " << *worker_choosed << " by affinity ";
+                return worker_choosed;
+            }
+        }
     }
-    return std::move(w);
+    for (auto w: workers_)
+        if (w->Empty()) {
+            LG(INFO) << "Task " << *t << " chooses worker " << *w << " by empty";
+            return w;
+        }
+    LG(INFO) << "Task " << *t << " chooses worker " << **workers_.begin() << " by default";
+    return *workers_.begin();
+//    }
 }
 
 void Engine::CheckTaskReady(TaskPtr task) {
@@ -111,24 +137,34 @@ void Engine::FinishTask(TaskPtr task) {
 }
 
 TaskBase &Engine::AddTask(TaskPtr task) {
-    LG(INFO) << *task;
-    for (auto &d : task->GetInputs()) {
-        d->AddTask(task);
-        DataNode &data = data_[d];
-        if (data.writer)
-            AddEdge(data.writer, task);
-        data.readers.push_back(task);
-    }
-    for (auto &d : task->GetOutputs()) {
-        d->AddTask(task);
-        DataNode &data = data_[d];
-        if (data.writer && data.readers.empty()) {
-//            fprintf(stderr, "Data written twice but no readers between them\n");
+    LG(INFO) << "AddTask " << *task;
+    for (auto &m : task->GetMetas()) {
+        if (m.read_only) {
+            auto &d = m.data;
+            d->AddTask(task);
+            DataNode &data = data_[d];
+            for (const auto &w : data.ReadBy(task))
+                AddEdge(w, task);
+        } else {
+            auto &d = m.data;
+            d->AddTask(task);
+            DataNode &data = data_[d];
+            for (const auto &r : data.WriteBy(task))
+                AddEdge(r, task);
+//        assert(!(!data.readers.empty() && !data.writers.empty()));
+//        if (data.readers.size() > 0 && data.writers.empty()) {
+//            for (const auto &r : data.readers)
+//                AddEdge(r, task);
+//        } else if (data.readers.empty() && data.writers.size() > 0) {
+//            data.writers.p
+//
+//        }
+//        if (data.writer && data.readers.empty()) {
+//            LG(ERROR) << "Data written twice but no readers between them\n");
+//        }
+//        data.readers.clear();
+//        data.writer = task;
         }
-        for (const auto &r : data.readers)
-            AddEdge(r, task);
-        data.readers.clear();
-        data.writer = task;
     }
     CheckTaskReady(task);
     return *task;
@@ -146,5 +182,6 @@ Engine &Engine::Get() {
 }
 
 void Engine::Finish() {
+    Device::UseCPU();
     engine.reset();
 }

@@ -22,6 +22,8 @@ protected:
     mutable State last_state_;
     mutable std::deque<std::weak_ptr<TaskBase>> tasks_scheduled_;
 
+    mutable std::vector<std::weak_ptr<TaskBase>> tasks_reading_, tasks_writing_;
+
     friend class Engine;
 
     void AddTask(const TaskPtr &t) {
@@ -138,7 +140,7 @@ public:
     std::string ToString() const {
         std::ostringstream os;
         const T *a = Read(Device::CpuDevice()).data();
-        os << "Data(" << "ptr=" << a << " count=" << size() << ":";
+        os << "Data(" << "ptr=" << a << " count=" << size() << ": ";
         for (size_t i = 0; i < size(); i++)
             os << a[i] << ',';
         os << ")";

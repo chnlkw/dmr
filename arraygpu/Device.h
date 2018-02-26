@@ -9,7 +9,7 @@
 #include "defs.h"
 #include "Allocator.h"
 
-class DeviceBase {
+class DeviceBase : public el::Loggable {
     struct PriorityTask {
         int priority;
         TaskPtr task;
@@ -21,6 +21,7 @@ class DeviceBase {
 
     int id_;
     AllocatorPtr allocator_;
+    std::vector<std::weak_ptr<WorkerBase>> workers_;
     std::priority_queue<PriorityTask> task_queue_;
 public:
     explicit DeviceBase(int id, AllocatorPtr allocator) :
@@ -38,10 +39,21 @@ public:
         return allocator_;
     }
 
+    void RegisterWorker(WorkerPtr w) {
+        workers_.push_back(w);
+    }
+
+    const auto &Workers() const {
+        return workers_;
+    }
+
     bool Tick();
 
     int Id() const { return id_; }
 
+    virtual void log(el::base::type::ostream_t &os) const {
+        os << "Device[" << id_ << "]";
+    }
 };
 
 class CPUDevice : public DeviceBase {

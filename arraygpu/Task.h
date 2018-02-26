@@ -13,13 +13,39 @@
 #include "defs.h"
 #include "Data.h"
 
+//enum Flag {
+//    Default = 0,
+//    Shared = 1,
+//    Exclusive = 2
+//};
+
+
 class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Loggable {
     TaskBase(const TaskBase &) = delete;
 
-    std::vector<DataBasePtr> inputs_;
-    std::vector<DataBasePtr> outputs_;
-    std::vector<DevicePtr> device_prefered_;
-    std::set<WorkerPtr> worker_prefered_;
+    struct Meta : public el::Loggable {
+        DataBasePtr data;
+        bool read_only = true;
+        int priority = 0;
+
+        Meta(DataBasePtr d, bool b, int p) :
+                data(d),
+                read_only(b),
+                priority(p) {}
+
+        bool operator<(const Meta &that) const {
+            return priority > that.priority;
+        }
+
+        virtual void log(el::base::type::ostream_t &os) const {
+            os << "[Meta] "
+               << data << " "
+               << (read_only ? "R " : "W ")
+               << priority << ". ";
+        }
+    };
+
+    std::vector<Meta> metas_;
     bool finished = false;
     Engine &engine_;
 
@@ -30,23 +56,27 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
 public:
     virtual ~TaskBase() {}
 
-    template<class Worker>
-    void Run(Worker *t) {
-        RunWorker(t);
-    }
+//    template<class Worker>
+//    void Run(Worker *t) {
+//        RunWorker(t);
+//    }
 
-    const std::vector<DataBasePtr> &GetInputs() const {
-        return inputs_;
+    const auto &GetMetas() {
+        std::sort(metas_.begin(), metas_.end());
+        return metas_;
     }
+//    const std::vector<DataBasePtr> &GetInputs() const {
+//        return inputs_;
+//    }
+//
+//    const std::vector<DataBasePtr> &GetOutputs() const {
+//        return outputs_;
+//    }
 
-    const std::vector<DataBasePtr> &GetOutputs() const {
-        return outputs_;
-    }
-
-    TaskBase &Prefer(WorkerPtr w) {
-        worker_prefered_.insert(w);
-        return *this;
-    }
+//    TaskBase &Prefer(WorkerPtr w) {
+//        worker_prefered_.insert(w);
+//        return *this;
+//    }
 
     virtual void Run(CPUWorker *) { throw std::runtime_error("not implemented on CPUWorker"); };
 
@@ -61,17 +91,20 @@ public:
         if (finished) os << " Finished";
     }
 
-
-protected:
-    TaskBase(Engine &engine, std::string name = "Task") :
-            engine_(engine), name_(name) {}
-
-    void AddInput(DataBasePtr data) {
-        inputs_.push_back(data);
+    bool IsFinished() const {
+        return finished;
     }
 
-    void AddOutput(DataBasePtr data) {
-        outputs_.push_back(data);
+protected:
+    TaskBase(Engine &engine, std::string name = "nonamed task") :
+            engine_(engine), name_(name) {}
+
+    void AddInput(DataBasePtr data, int priority = 1) {
+        metas_.push_back(Meta{data, true, priority});
+    }
+
+    void AddOutput(DataBasePtr data, int priority = 2) {
+        metas_.push_back(Meta{data, false, priority});
     }
 
     void Finish() {
