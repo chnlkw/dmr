@@ -27,25 +27,6 @@ void DataBase::Wait() const {
     tasks_scheduled_.clear();
 }
 
-ArrayBasePtr DataBase::Read(DevicePtr dev) const {
-    Wait();
-    ArrayBasePtr ret = last_state_.ReadAt(dev, 0);
-    CUDA_CALL(cudaStreamSynchronize, 0);
-    return ret;
-}
-
-ArrayBasePtr DataBase::Write(DevicePtr dev, size_t bytes) {
-    Wait();
-    ArrayBasePtr ret = last_state_.WriteAt(dev, 0, false, bytes);
-    CUDA_CALL(cudaStreamSynchronize, 0);
-    return ret;
-}
-
-ArrayBasePtr DataBase::ReadWrite(DevicePtr dev) {
-    ArrayBasePtr ret = last_state_.WriteAt(dev, 0, true, last_state_.bytes);
-    CUDA_CALL(cudaStreamSynchronize, 0);
-    return ret;
-}
 
 void Engine::AddEdge(TaskPtr src, TaskPtr dst) {
     if (src->finished)
@@ -80,7 +61,7 @@ bool Engine::Tick() {
     }
     for (auto t : ready_tasks_) {
 //        std::cout << "Engine Run Task " << std::endl;
-        LOG(INFO) << "Choose worker of task " << *t;
+        LG(INFO) << "Choose worker of task " << *t;
         WorkerPtr w = ChooseWorker(t);
         w->RunTask(t);
     }
@@ -139,31 +120,10 @@ void Engine::FinishTask(TaskPtr task) {
 TaskBase &Engine::AddTask(TaskPtr task) {
     LG(INFO) << "AddTask " << *task;
     for (auto &m : task->GetMetas()) {
-        if (m.read_only) {
-            auto &d = m.data;
-            d->AddTask(task);
-            DataNode &data = data_[d];
-            for (const auto &w : data.ReadBy(task))
-                AddEdge(w, task);
-        } else {
-            auto &d = m.data;
-            d->AddTask(task);
-            DataNode &data = data_[d];
-            for (const auto &r : data.WriteBy(task))
-                AddEdge(r, task);
-//        assert(!(!data.readers.empty() && !data.writers.empty()));
-//        if (data.readers.size() > 0 && data.writers.empty()) {
-//            for (const auto &r : data.readers)
-//                AddEdge(r, task);
-//        } else if (data.readers.empty() && data.writers.size() > 0) {
-//            data.writers.p
-//
-//        }
-//        if (data.writer && data.readers.empty()) {
-//            LG(ERROR) << "Data written twice but no readers between them\n");
-//        }
-//        data.readers.clear();
-//        data.writer = task;
+        const auto& depend_tasks = m.data->RegisterTask(task, m.read_only);
+        for (const auto& depend_task : depend_tasks) {
+            if (!depend_task.expired())
+            AddEdge(depend_task.lock(), task);
         }
     }
     CheckTaskReady(task);
@@ -184,4 +144,10 @@ Engine &Engine::Get() {
 void Engine::Finish() {
     Device::UseCPU();
     engine.reset();
+}
+
+Engine::~Engine() {
+    LG(INFO) << "Engine destroy with tasks : " << tasks_.size() << " " << ready_tasks_.size();
+    LG(INFO) << "Engine destroy with tasks : " << tasks_.size() << " " << ready_tasks_.size();
+    LG(INFO) << "Engine destroy Workers : " << workers_.size();
 }

@@ -196,69 +196,13 @@ class CudaPreAllocator : public CudaAllocator {
     void *ptr_;
     std::map<off_t, size_t> m_;
 public:
-    CudaPreAllocator(int device, size_t pre_alloc_bytes, size_t align = 4096) :
-            CudaAllocator(device),
-            size_(pre_alloc_bytes),
-            allocated_(0),
-            align_(align) {
+    CudaPreAllocator(int device, size_t pre_alloc_bytes, size_t align = 4096);
 
-        if (device_ < 0) {
-            CUDA_CALL(cudaMallocHost, &ptr_, size_);
-        } else {
-            CUDA_CALL(cudaSetDevice, device_);
-            CUDA_CALL(cudaMalloc, &ptr_, size_);
-        }
-    }
+    ~CudaPreAllocator();
 
-    ~CudaPreAllocator() {
-        if (allocated_ > 0) {
-            fprintf(stderr, "[WARN] dangling pointer to CudaPreAllocater, allocated size = %lu\n", allocated_);
-        }
-        if (device_ < 0) {
-            CUDA_CALL(cudaFreeHost, ptr_);
-        } else {
-            CUDA_CALL(cudaSetDevice, device_);
-            CUDA_CALL(cudaFree, ptr_);
-        }
-    }
+    void *Alloc(size_t size) override;
 
-    void *Alloc(size_t size) override {
-        auto align_up = [this](size_t off) {
-            off += align_ - 1;
-            off &= ~(align_ - 1);
-            return off;
-        };
-        off_t off = 0;
-        for (auto p : m_) {
-            auto beg = p.first;
-            auto end = p.first + p.second;
-            if (off + size > beg) {
-                off = align_up(end);
-            } else {
-                break;
-            }
-        }
-        if (off + size > size_) {
-            std::ostringstream os;
-            os << "CudaPreAllocator :: not enough memory when allocating " << size << " remain " << size_ - allocated_;
-            throw std::runtime_error(os.str().c_str());
-        }
-        m_.emplace(off, size);
-        allocated_ += size;
-        return (char *) ptr_ + off;
-    }
-
-    void Free(void *ptr) override {
-        off_t off = (char *) ptr - (char *) ptr_;
-        auto it = m_.find(off);
-        if (it == m_.end()) {
-            std::ostringstream os;
-            os << "CudaPreAllocator :: Free pointer not found ptr=" << ptr << " off = " << off;
-            throw std::runtime_error(os.str().c_str());
-        }
-        allocated_ -= it->second;
-        m_.erase(it);
-    }
+    void Free(void *ptr) override;
 };
 
 class Allocator : public MultiDeviceAllocator {

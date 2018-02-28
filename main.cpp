@@ -21,11 +21,11 @@ auto print = [](auto &x) { std::cout << " " << x; };
 auto self = [](auto x) { return x; };
 
 namespace std {
-    template<class K, class V>
-    std::ostream &operator<<(std::ostream &os, const std::pair<K, V> &p) {
-        os << "(" << p.first << "," << p.second << ")";
-        return os;
-    };
+template<class K, class V>
+std::ostream &operator<<(std::ostream &os, const std::pair<K, V> &p) {
+    os << "(" << p.first << "," << p.second << ")";
+    return os;
+};
 }
 
 //template<class Idx, class Val, class Target>
@@ -131,89 +131,31 @@ public:
 //    std::cout << view::all(pos) << '\n';
 //}
 
-void test_dmr() {
-
-//    std::vector<DevicePtr> gpu_devices;
-//    for (int i = 0; i < Device::NumGPUs(); i++) {
-//        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30)));
-//        gpu_devices.push_back(std::make_shared<GPUDevice>(std::make_shared<CudaAllocator>(i)));
-//    }
-
+void test_dmr(int npar, int num_element, int repeat) {
     Device::UseCPU();
 
-#if 0
-    if (true) {
-        std::vector<int> keys = {1, 3, 4, 2, 5};
-        DMR<int, data_constructor_t> dmr1(keys);
-        Data<float> values(keys.size());
-        {
-            auto v = values.Write().data();
-            for (int i = 0; i < keys.size(); i++) {
-                v[i] = keys[i] * 10.0f;
-            }
-        }
-//        Device::Use(gpu_devices[0]);
-        Data<float> values_out = dmr1.ShuffleValues<float>(values);
-//        values_out->Wait();
-//        while (Engine::Get().Tick());
-        auto d_val_out = values_out.Read(Device::CpuDevice()).data();
-        Device::UseCPU();
-//        d_val_out.Write(Device::Current());
-        {
-            auto &keys = dmr1.Keys().Read();
-            auto &offs = dmr1.Offs().Read();
-            for (size_t i = 0; i < keys.size(); i++) {
-                auto k = keys[i];
-                for (int j = offs[i]; j < offs[i + 1]; j++) {
-                    auto v = d_val_out[j];
-                    printf("%d,%f ", k, v);
-                }
-            }
-            printf("\n");
-        }
-    }
-#endif
+    LOG(INFO) << "start test dmr npar=" << npar << " num_element=" << num_element << " repeat=" << repeat;
 
-#if 1
-    int N = 2;
-//    DMR<uint32_t> dmr(N, M);
-
-    std::vector<std::vector<uint32_t>> keys(N), values(N);
-    for (int i = 0; i < 20; i++) {
+    std::vector<std::vector<uint32_t>> keys(npar), values(npar);
+    for (int i = 0; i < num_element; i++) {
         uint32_t k = dis(gen);
         uint32_t v = dis(gen);
-        keys[i % N].push_back(k);
-        values[i % N].push_back(v);
+        keys[i % npar].push_back(k);
+        values[i % npar].push_back(v);
         a[k] ^= v;
     }
-#if 1
     PartitionedDMR<uint32_t, data_constructor_t> dmr2(keys);
 
     std::vector<Data<uint32_t>> d_values;
-    for (int i = 0; i < N; i++) {
+    for (int i = 0; i < npar; i++) {
         d_values.emplace_back(values[i]);
     }
 
     LOG(INFO) << "Shufflevalues";
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
     LOG(INFO) << "Shufflevalues OK";
-#if 0
-    for (int i = 0; i < 5; i++) {
-        Clock clk;
-        auto r = dmr2.ShuffleValues<uint32_t>(d_values);
-        size_t sum = 0;
-        for (auto &x : r) {
-            sum += x.size() * sizeof(int);
-        }
-        double t = clk.timeElapsed();
-        double speed = sum / t / (1LU << 30);
-        printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
-    }
-#endif
+
     Device::UseCPU();
-#else
-    auto result = dmr.ShuffleValues<uint32_t>(values);
-#endif
 
     while (Engine::Get().Tick());
 
@@ -243,8 +185,21 @@ void test_dmr() {
             abort();
         }
     }
-#endif
     std::cout << "OK" << std::endl;
+
+    for (int i = 0; i < repeat; i++) {
+        Clock clk;
+        auto r = dmr2.ShuffleValues<uint32_t>(d_values);
+        size_t sum = 0;
+        for (auto &x : r) {
+            x.Read();
+            sum += x.size() * sizeof(int);
+        }
+        double t = clk.timeElapsed();
+        double speed = sum / t / (1LU << 30);
+        while (Engine::Get().Tick());
+        printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
+    }
 }
 
 template<class T>
@@ -272,7 +227,6 @@ public:
     }
 
     virtual void Run(GPUWorker *gpu) override {
-        LOG(INFO) << "run TaskAdd on gpu " << gpu->Device()->Id();
         const T *a = a_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
         const T *b = b_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
         T *c = c_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
@@ -305,7 +259,7 @@ void test_engine() {
     print(a1);
     print(a2);
 //    auto t1 = std::make_shared<TaskAdd<int>>(d1, d2, d3);
-//    engine.AddTask(t1);
+//    engine.RegisterTask(t1);
     engine.AddTask<TaskAdd<int>>(d1, d2, d3);
 
     auto d4 = Data<int>(d1.size());
@@ -328,7 +282,7 @@ void test_engine() {
 
 INITIALIZE_EASYLOGGINGPP
 
-int main() {
+int main(int argc, char **argv) {
     el::Loggers::configureFromGlobal("logging.conf");
     LOG(INFO) << "info";
     CLOG(INFO, "Engine") << "engine info";
@@ -357,7 +311,13 @@ int main() {
     Engine::Create({cpu_workers.begin(), cpu_workers.end()});
 #endif
     test_engine();
-    test_dmr();
+    int npar = 2;
+    int nelem = 10;
+    int rep = 2;
+    if (argc > 1) npar = atoi(argv[1]);
+    if (argc > 2) nelem = atoi(argv[2]);
+    if (argc > 3) rep = atoi(argv[3]);
+    test_dmr(npar, nelem, rep);
 
     for (auto d : gpu_devices) {
         Device::Use(d);

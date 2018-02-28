@@ -22,13 +22,13 @@ protected:
     mutable State last_state_;
     mutable std::deque<std::weak_ptr<TaskBase>> tasks_scheduled_;
 
-    mutable std::vector<std::weak_ptr<TaskBase>> tasks_reading_, tasks_writing_;
+    mutable std::vector<std::weak_ptr<TaskBase>> last_reading_, last_writing_;
 
     friend class Engine;
 
-    void AddTask(const TaskPtr &t) {
-        tasks_scheduled_.push_back(t);
-    }
+    bool writing = false;
+
+    const std::vector<std::weak_ptr<TaskBase>> &RegisterTask(const TaskPtr &t, bool read_only);
 
 public:
 

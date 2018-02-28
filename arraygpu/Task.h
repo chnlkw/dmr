@@ -54,7 +54,7 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
     std::string name_;
 
 public:
-    virtual ~TaskBase() {}
+    virtual ~TaskBase();
 
 //    template<class Worker>
 //    void Run(Worker *t) {

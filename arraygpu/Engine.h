@@ -18,6 +18,7 @@ class Engine {
     };
     std::map<TaskPtr, Node> tasks_;
 
+#if 0
     struct DataNode {
         bool writing = false;
         std::vector<TaskPtr> writers;
@@ -43,6 +44,8 @@ class Engine {
     };
 
     std::map<DataBasePtr, DataNode> data_;
+#endif
+
     std::set<WorkerPtr> workers_;
     std::vector<TaskPtr> ready_tasks_;
 
@@ -51,6 +54,8 @@ class Engine {
     explicit Engine(std::set<WorkerPtr> workers);
 
 public:
+
+    ~Engine();
 
     static void Create(std::set<WorkerPtr> workers);
 

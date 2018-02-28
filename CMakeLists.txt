@@ -16,6 +16,7 @@ endif ()
 include_directories(logging)
 include_directories(arraygpu)
 
+
 aux_source_directory(arraygpu lib_src)
 MESSAGE("lib_src = ${lib_src}")
 

@@ -72,3 +72,42 @@ ArrayBasePtr DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stre
     return WriteAsync(task, dev, stream, last_state_.bytes);
 }
 
+ArrayBasePtr DataBase::Read(DevicePtr dev) const {
+    Wait();
+    ArrayBasePtr ret = last_state_.ReadAt(dev, 0);
+    CUDA_CALL(cudaStreamSynchronize, 0);
+    return ret;
+}
+
+ArrayBasePtr DataBase::Write(DevicePtr dev, size_t bytes) {
+    Wait();
+    ArrayBasePtr ret = last_state_.WriteAt(dev, 0, false, bytes);
+    CUDA_CALL(cudaStreamSynchronize, 0);
+    return ret;
+}
+
+ArrayBasePtr DataBase::ReadWrite(DevicePtr dev) {
+    ArrayBasePtr ret = last_state_.WriteAt(dev, 0, true, last_state_.bytes);
+    CUDA_CALL(cudaStreamSynchronize, 0);
+    return ret;
+}
+
+const std::vector<std::weak_ptr<TaskBase>> &DataBase::RegisterTask(const TaskPtr &t, bool read_only) {
+    tasks_scheduled_.push_back(t);
+    if (read_only) {
+        if (writing) {
+            writing = false;
+            last_reading_.clear();
+        }
+        last_reading_.push_back(t);
+        return last_writing_;
+    } else {
+        if (!writing) {
+            writing = true;
+            last_writing_.clear();
+        }
+        last_writing_.push_back(t);
+        return last_reading_;
+    }
+}
+
