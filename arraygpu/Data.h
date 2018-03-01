@@ -16,7 +16,7 @@ protected:
 
         ArrayBasePtr ReadAt(const DevicePtr &dev, cudaStream_t stream);
 
-        ArrayBasePtr WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old, size_t cur_bytes);
+        ArrayBasePtr WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old);
     };
 
     mutable State last_state_;
@@ -30,9 +30,13 @@ protected:
 
     const std::vector<std::weak_ptr<TaskBase>> &RegisterTask(const TaskPtr &t, bool read_only);
 
+    std::vector<std::weak_ptr<DataBase>> follows_;
+
 public:
 
-    DataBase() = default;
+    explicit DataBase(size_t bytes = 0) {
+        last_state_.bytes = bytes;
+    }
 
     DataBase(const DataBase &) = delete;
 
@@ -48,19 +52,39 @@ public:
 
     ArrayBasePtr Read(DevicePtr dev) const;
 
-    ArrayBasePtr Write(DevicePtr dev, size_t bytes);
+//    ArrayBasePtr Write(DevicePtr dev, size_t bytes);
 
-    ArrayBasePtr Write(DevicePtr dev) { return Write(dev, last_state_.bytes); }
+    ArrayBasePtr Write(DevicePtr dev, bool keep_old = false);
 
-    ArrayBasePtr WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes);
+//    ArrayBasePtr WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes);
 
-    ArrayBasePtr WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
+    ArrayBasePtr WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, bool keep_old = false);
 
-    ArrayBasePtr ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
+//    ArrayBasePtr ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream);
 
-    ArrayBasePtr ReadWrite(DevicePtr dev);
+//    ArrayBasePtr ReadWrite(DevicePtr dev);
+
+    std::vector<ArrayBasePtr> GetReplicas() const;
 
     void Wait() const;
+
+    void Follow(DataBasePtr that) {
+        follows_.push_back(that);
+    }
+
+    std::vector<DevicePtr> DevicesPrefered() const {
+        std::vector<DevicePtr> ret;
+        for (auto &r : GetReplicas()) {
+            ret.push_back(r->Device());
+        }
+        for (auto &f : follows_) {
+            if (f.expired())
+                continue;
+            for (auto &r : f.lock()->GetReplicas())
+                ret.push_back(r->Device());
+        }
+        return ret;
+    }
 };
 
 template<class T>
@@ -74,14 +98,17 @@ public:
     Data() : std::shared_ptr<DataBase>(new DataBase()) {
     }
 
-    explicit Data(size_t count, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(new DataBase()) {
-        Write(device, count * sizeof(T));
+    explicit Data(size_t count) : std::shared_ptr<DataBase>(new DataBase(count * sizeof(T))) {
+    }
+
+    Data(size_t count, DevicePtr device) : std::shared_ptr<DataBase>(new DataBase(count * sizeof(T))) {
+        Write(device);
     }
 
     explicit Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(
-            new DataBase()) {
+            new DataBase(vec.size() * sizeof(T))) {
+        Write(device);
         size_t bytes = vec.size() * sizeof(T);
-        Write(device, bytes);
         DataCopy(data(), device->Id(), vec.data(), -1, bytes);
     }
 
@@ -98,30 +125,39 @@ public:
         return *std::static_pointer_cast<Array<T>>(get()->ReadAsync(task, dev, stream));
     }
 
-    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
+//    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
+//        data_ = nullptr;
+//        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, bytes));
+//    }
+
+    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, bool keep_old = false) {
         data_ = nullptr;
-        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, bytes));
+        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, keep_old));
     }
 
-    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        data_ = nullptr;
-        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream));
-    }
+//    Array<T> &ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
+//        data_ = nullptr;
+//        return *std::static_pointer_cast<Array<T>>(get()->ReadWriteAsync(task, dev, stream));
+//    }
 
-    Array<T> &ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
-        data_ = nullptr;
-        return *std::static_pointer_cast<Array<T>>(get()->ReadWriteAsync(task, dev, stream));
-    }
+//    Array<T> &Write(DevicePtr dev) {
+//        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev));
+//        data_ = ret.data();
+//        return ret;
+//    }
 
-    Array<T> &Write(DevicePtr dev, size_t bytes) {
-        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev, bytes));
+    Array<T> &Write(DevicePtr dev = Device::Current(), bool keep_old = true) {
+        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev, keep_old));
         data_ = ret.data();
         return ret;
     }
 
-    Array<T> &Write(DevicePtr dev = Device::Current()) {
-        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev));
-        data_ = ret.data();
+    std::vector<ArrayPtr<T>> GetReplicas() const {
+        std::vector<ArrayBasePtr> replicas = get()->GetReplicas();
+        std::vector<ArrayPtr<T>> ret;
+        ret.reserve(replicas.size());
+        for (auto &e : replicas)
+            ret.push_back(std::static_pointer_cast<Array<T>>(e));
         return ret;
     }
 

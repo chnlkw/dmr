@@ -13,7 +13,8 @@
 class ArrayBase {
 protected:
     AllocatorPtr allocator_;
-    int device_;
+    DevicePtr device_;
+//    int device_;
     size_t bytes_;
     void *ptr_;
     bool owned_;
@@ -26,7 +27,7 @@ public:
 
     explicit ArrayBase(size_t bytes);
 
-    ArrayBase(AllocatorPtr allocator, int device, size_t bytes);
+    ArrayBase(AllocatorPtr allocator, DevicePtr device, size_t bytes);
 
     ArrayBase(const ArrayBase &that);
 
@@ -46,7 +47,7 @@ public:
 
     void CopyFromAsync(const ArrayBase &that, cudaStream_t stream, bool check_size_equal = true);
 
-    int GetDevice() const { return device_; }
+    DevicePtr Device() const { return device_; }
 
     size_t GetBytes() const { return bytes_; }
 
@@ -64,7 +65,7 @@ public:
             ArrayBase(count * sizeof(T)) {
     }
 
-    Array(AllocatorPtr allocator, int device, size_t count = 0)
+    Array(AllocatorPtr allocator, DevicePtr device, size_t count = 0)
             : ArrayBase(allocator, device, count * sizeof(T)) {
     }
 

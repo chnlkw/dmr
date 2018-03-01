@@ -18,7 +18,7 @@
 //
 //    void SetDevice(int device_id);
 //
-//    int GetDevice() const;
+//    int Device() const;
 //
 //    int GetNumDevices() const;
 //

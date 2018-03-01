@@ -12,7 +12,7 @@
 //    DataCopyInitP2P();
 //}
 //
-//int Context::GetDevice() const {
+//int Context::Device() const {
 //    return device_;
 //}
 //

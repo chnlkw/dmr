@@ -7,22 +7,22 @@
 
 ArrayBase::ArrayBase(size_t bytes)
         : allocator_(Device::Current()->GetAllocator()),
-          device_(Device::Current()->Id()) {
+          device_(Device::Current()) {
     Allocate(bytes);
 }
 
 ArrayBase::ArrayBase(const ArrayBase &that) :
         allocator_(Device::Current()->GetAllocator()),
-        device_(Device::Current()->Id()) {
+        device_(Device::Current()) {
     Allocate(that.bytes_);
     CopyFrom(that);
 }
 
 ArrayBase::ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
         allocator_(Device::Current()->GetAllocator()),
-        device_(Device::Current()->Id()) {
+        device_(Device::Current()) {
     Allocate(bytes);
-    DataCopy(this->ptr_, this->device_, ptr, -1, this->bytes_);
+    DataCopy(this->ptr_, this->device_->Id(), ptr, -1, this->bytes_);
 }
 
 ArrayBase::ArrayBase(ArrayBase &&that) :
@@ -74,18 +74,18 @@ void ArrayBase::CopyFrom(const ArrayBase &that, bool check_size_equal) {
     CLOG(INFO, "Array") << "Copy" << that.device_ << " -> " << this->device_;
     if (check_size_equal)
         assert(this->bytes_ == that.bytes_);
-    DataCopy(this->ptr_, this->device_, that.ptr_, that.device_, bytes);
+    DataCopy(this->ptr_, this->device_->Id(), that.ptr_, that.device_->Id(), bytes);
 }
 
 void ArrayBase::CopyFromAsync(const ArrayBase &that, cudaStream_t stream, bool check_size_equal) {
     size_t bytes = std::min(this->bytes_, that.bytes_);
-    CLOG(INFO, "Array") << "CopyAsync " << that.device_ << " -> " << this->device_;
+    CLOG(INFO, "Array") << "CopyAsync " << that.device_->Id() << " -> " << this->device_->Id();
     if (check_size_equal)
         assert(this->bytes_ == that.bytes_);
-    DataCopyAsync(this->ptr_, this->device_, that.ptr_, that.device_, bytes, stream);
+    DataCopyAsync(this->ptr_, this->device_->Id(), that.ptr_, that.device_->Id(), bytes, stream);
 }
 
-ArrayBase::ArrayBase(AllocatorPtr allocator, int device, size_t bytes)
+ArrayBase::ArrayBase(AllocatorPtr allocator, DevicePtr device, size_t bytes)
         : allocator_(std::move(allocator)),
           device_(device) {
     Allocate(bytes);

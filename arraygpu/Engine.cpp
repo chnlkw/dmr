@@ -64,6 +64,17 @@ bool Engine::Tick() {
         LG(INFO) << "Choose worker of task " << *t;
         WorkerPtr w = ChooseWorker(t);
         w->RunTask(t);
+
+        LG(INFO) << "After run task " << *t;
+        for (auto &m : t->GetMetas()) {
+            LG(DEBUG) << m << " replica count = " << m.data->last_state_.replicas.size();
+            for (auto dev_arr : m.data->last_state_.replicas) {
+                DevicePtr dev = dev_arr.first;
+                LG(DEBUG) << "\treplica at  " << *dev;
+            }
+        }
+        LG(INFO) << "          End";
+
     }
     ready_tasks_.clear();
     return true;
@@ -74,9 +85,9 @@ WorkerPtr Engine::ChooseWorker(TaskPtr t) {
 //        return *(t->worker_prefered_.begin());
 //    } else {
     for (auto &m : t->GetMetas()) {
-        LG(DEBUG) << m << " replicas " << m.data->last_state_.replicas.size();
-        for (auto dev_arr : m.data->last_state_.replicas) {
-            DevicePtr dev = dev_arr.first;
+        LG(DEBUG) << m << " replica count = " << m.data->last_state_.replicas.size();
+        for (DevicePtr dev : m.data->DevicesPrefered()) {
+            LG(DEBUG) << "\t prefer device : " << dev;
             WorkerPtr worker_choosed;
             for (auto ww : dev->Workers()) {
                 WorkerPtr w = ww.lock();
@@ -120,10 +131,10 @@ void Engine::FinishTask(TaskPtr task) {
 TaskBase &Engine::AddTask(TaskPtr task) {
     LG(INFO) << "AddTask " << *task;
     for (auto &m : task->GetMetas()) {
-        const auto& depend_tasks = m.data->RegisterTask(task, m.read_only);
-        for (const auto& depend_task : depend_tasks) {
+        const auto &depend_tasks = m.data->RegisterTask(task, m.read_only);
+        for (const auto &depend_task : depend_tasks) {
             if (!depend_task.expired())
-            AddEdge(depend_task.lock(), task);
+                AddEdge(depend_task.lock(), task);
         }
     }
     CheckTaskReady(task);

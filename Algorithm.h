@@ -30,7 +30,9 @@ Array<T> Renew(const Array<T> &in, size_t count) {
 
 template<class T>
 Data<T> Renew(const Data<T> &in, size_t count) {
-    return Data<T>(count, in.DeviceCurrent());
+    Data<T> ret(count);
+    ret->Follow(in);
+    return ret;
 }
 
 template<class V>
@@ -70,9 +72,12 @@ void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size
 
         virtual void Run(GPUWorker *gpu) override {
 //            std::cout << "Run on GPU " << gpu->Device()->Id() << std::endl;
-            const T *src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
-            T *dst = dst_.ReadWriteAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
-            DataCopyAsync(dst + dst_off_, gpu->Device()->Id(), src + src_off_, gpu->Device()->Id(), count_ * sizeof(T),
+            ArrayPtr<T> src = src_.GetReplicas().at(0);
+//            const T *src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream()).data();
+
+            T *dst = dst_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream(), true).data();
+            DataCopyAsync(dst + dst_off_, gpu->Device()->Id(), src->data() + src_off_, src->Device()->Id(),
+                          count_ * sizeof(T),
                           gpu->Stream());
         }
     };

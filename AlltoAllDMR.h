@@ -65,7 +65,8 @@ public:
         for (size_t i = 0; i < size_; i++) {
             assert(value_in[i].size() == send_sum_[i]);
 //            std::cout << "val_in " << i << " " << std::to_string(value_in[i]) << std::endl;
-            value_out.emplace_back(recv_sum_[i]);
+//            value_out.emplace_back(recv_sum_[i]);
+            value_out.push_back(Algorithm::Renew(value_in[i], recv_sum_[i]));
             assert(value_out.back().size() == recv_sum_[i]);
         }
         for (size_t i = 0; i < size_; i++) {

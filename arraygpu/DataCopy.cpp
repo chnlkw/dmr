@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <easylogging++.h>
 
 std::map<int, std::map<int, bool>> data_copy_p2p;
 
@@ -13,7 +14,7 @@ void DataCopy(void *dst_ptr, int dst_device, const void *src_ptr, int src_device
     if (bytes == 0)
         return;
     assert(bytes > 0);
-//    printf("data copy %d to %d\n", src_device, dst_device);
+    CLOG(INFO, "DataCopy") << "CopySync " << src_device << " -> " << dst_device << " bytes " << bytes;
     if (src_device < 0) {
         if (dst_device < 0) { //src CPU dst CPU
             memcpy(dst_ptr, src_ptr, bytes);
@@ -31,7 +32,8 @@ void DataCopy(void *dst_ptr, int dst_device, const void *src_ptr, int src_device
 
 void
 DataCopyAsync(void *dst_ptr, int dst_device, const void *src_ptr, int src_device, size_t bytes, cudaStream_t stream) {
-//                std::cout << dst_device << " <- " << src_device << std::endl;
+    CLOG(INFO, "DataCopy") << "CopyAsync " << src_device << " -> " << dst_device << " bytes = " << bytes << " stream = "
+                           << stream;
     if (src_device < 0) {
         if (dst_device < 0) { //src CPU dst CPU
             CUDA_CALL(cudaStreamSynchronize, stream);
@@ -46,7 +48,12 @@ DataCopyAsync(void *dst_ptr, int dst_device, const void *src_ptr, int src_device
             if (data_copy_p2p[src_device][dst_device]) {
                 CUDA_CALL(cudaMemcpyPeerAsync, dst_ptr, dst_device, src_ptr, src_device, bytes, stream);
 //                std::cout << dst_device << " <- " << src_device << std::endl;
-            } else CUDA_CALL(cudaMemcpyAsync, dst_ptr, src_ptr, bytes, cudaMemcpyDeviceToDevice, stream);
+                CLOG(DEBUG, "DataCopy") << "use P2P " << src_device << " to " << dst_device;
+            } else {
+                CUDA_CALL(cudaMemcpyAsync, dst_ptr, src_ptr, bytes, cudaMemcpyDeviceToDevice, stream);
+                if (src_device != dst_device)
+                    CLOG(WARNING, "DataCopy") << "use Origin " << src_device << " to " << dst_device;
+            }
         }
     }
 }
@@ -62,8 +69,8 @@ void DataCopyInitP2P() {
             if (access) {
                 CUDA_CALL(cudaDeviceEnablePeerAccess, j, 0);
                 data_copy_p2p[i][j] = true;
-                std::cout << "can p2p " << i << ' ' << j << std::endl;
                 CUDA_CHECK();
+                CLOG(INFO, "DataCopy") << "P2P " << i << " to " << j;
             }
         }
     }

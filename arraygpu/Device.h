@@ -22,7 +22,7 @@ class DeviceBase : public el::Loggable {
     int id_;
     AllocatorPtr allocator_;
     std::vector<std::weak_ptr<WorkerBase>> workers_;
-    std::priority_queue<PriorityTask> task_queue_;
+
 public:
     explicit DeviceBase(int id, AllocatorPtr allocator) :
             id_(id),
@@ -31,9 +31,6 @@ public:
 
     virtual ~DeviceBase() {}
 
-    virtual void AddTask(TaskPtr task, int priority = 0) {
-        task_queue_.push({priority, task});
-    }
 
     AllocatorPtr GetAllocator() {
         return allocator_;
@@ -58,8 +55,11 @@ public:
 
 class CPUDevice : public DeviceBase {
 public:
-    CPUDevice() : DeviceBase(-1, AllocatorPtr(new CPUAllocator)) {
-    }
+#ifdef USE_CUDA
+    CPUDevice() : DeviceBase(-1, AllocatorPtr(new CudaPreAllocator(-1, 8LU<<30))) { }
+#else
+    CPUDevice() : DeviceBase(-1, AllocatorPtr(new CPUAllocator)) { }
+#endif
 };
 
 class GPUDevice : public DeviceBase {
@@ -100,15 +100,15 @@ public:
 };
 
 //template<class V>
-//DevicePtr GetDevice(const V &v);
+//DevicePtr Device(const V &v);
 //
 //template<class T>
-//DevicePtr GetDevice(const std::vector<T> &v) {
+//DevicePtr Device(const std::vector<T> &v) {
 //    return Device::CpuDevice();
 //}
 //
 //template<class T>
-//DevicePtr GetDevice(const Data<T> &v) {
+//DevicePtr Device(const Data<T> &v) {
 //    return v.DeviceCurrent();
 //}
 

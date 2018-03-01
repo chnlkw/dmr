@@ -12,11 +12,6 @@
 
 #include "easylogging++.h"
 
-std::random_device rd;  //Will be used to obtain a seed for the random number engine
-std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-std::uniform_int_distribution<uint32_t> dis(1, 9);
-std::map<int, int> a;
-
 auto print = [](auto &x) { std::cout << " " << x; };
 auto self = [](auto x) { return x; };
 
@@ -131,21 +126,39 @@ public:
 //    std::cout << view::all(pos) << '\n';
 //}
 
-void test_dmr(int npar, int num_element, int repeat) {
-    Device::UseCPU();
-
+void test_dmr(size_t npar, size_t num_element, int repeat) {
     LOG(INFO) << "start test dmr npar=" << npar << " num_element=" << num_element << " repeat=" << repeat;
 
+    LOG(INFO) << "Initializing Key Value";
+    num_element /= npar;
     std::vector<std::vector<uint32_t>> keys(npar), values(npar);
-    for (int i = 0; i < num_element; i++) {
-        uint32_t k = dis(gen);
-        uint32_t v = dis(gen);
-        keys[i % npar].push_back(k);
-        values[i % npar].push_back(v);
-        a[k] ^= v;
+    for (int pid = 0; pid < npar; pid++) {
+        keys[pid].resize(num_element);
+        values[pid].resize(num_element);
     }
+    size_t sum_keys = 0, sum_values = 0;
+#pragma omp parallel reduction(+:sum_keys, sum_values)
+    {
+        std::random_device rd;  //Will be used to obtain a seed for the random number engine
+        std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+        std::uniform_int_distribution<uint32_t> dis(1, 100);
+        for (int pid = 0; pid < npar; pid++) {
+            auto &k = keys[pid];
+            auto &v = values[pid];
+#pragma omp for
+            for (int i = 0; i < k.size(); i++) {
+                k[i] = dis(gen);
+                v[i] = dis(gen);
+                sum_keys += k[i];
+                sum_values += v[i];
+            }
+        }
+    }
+
+    LOG(INFO) << "Initializing DMR keys";
     PartitionedDMR<uint32_t, data_constructor_t> dmr2(keys);
 
+    LOG(INFO) << "Initializing Input values";
     std::vector<Data<uint32_t>> d_values;
     for (int i = 0; i < npar; i++) {
         d_values.emplace_back(values[i]);
@@ -153,42 +166,42 @@ void test_dmr(int npar, int num_element, int repeat) {
 
     LOG(INFO) << "Shufflevalues";
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
+    while (Engine::Get().Tick());
     LOG(INFO) << "Shufflevalues OK";
 
-    Device::UseCPU();
+//    for (auto &v : result) {
+//        LOG(DEBUG) << "result " << v.ToString();
+//    }
+    size_t sum_keys_2 = 0, sum_values_2 = 0;
 
-    while (Engine::Get().Tick());
+    LOG(INFO) << "Checking results";
 
-    for (auto &v : result) {
-        LOG(DEBUG) << "result " << v.ToString();
-    }
-    std::set<int> exist_keys;
     for (size_t par_id = 0; par_id < dmr2.Size(); par_id++) {
         auto keys = dmr2.Keys(par_id).Read().data();
         auto offs = dmr2.Offs(par_id).Read().data();
         auto values = result[par_id].Read().data();
+
+#pragma omp parallel for reduction(+:sum_keys_2, sum_values_2)
         for (size_t i = 0; i < dmr2.Keys(par_id).size(); i++) {
             auto k = keys[i];
-            if (exist_keys.count(k)) {
-                throw std::runtime_error("same key in different partitions");
-            }
-            exist_keys.insert(k);
             for (int j = offs[i]; j < offs[i + 1]; j++) {
                 auto v = values[j];
-                a[k] ^= v;
+                sum_keys_2 += k;
+                sum_values_2 += v;
             }
         }
     }
-    for (auto x : a) {
-        if (x.second != 0) {
-            LOG(ERROR) << "key not match" << x.first << " " << x.second;
-            abort();
-        }
+    if (sum_keys != sum_keys_2 || sum_values != sum_values_2) {
+        LOG(FATAL) << "sum not match" << sum_keys << ' ' << sum_keys_2 << ' ' << sum_values << ' ' << sum_keys_2;
     }
-    std::cout << "OK" << std::endl;
+    LOG(INFO) << "Result OK";
 
+    LOG(INFO) << "Run benchmark ";
     for (int i = 0; i < repeat; i++) {
         Clock clk;
+        for (auto &d : d_values) {
+            d.Write();
+        }
         auto r = dmr2.ShuffleValues<uint32_t>(d_values);
         size_t sum = 0;
         for (auto &x : r) {
@@ -217,7 +230,6 @@ public:
     }
 
     virtual void Run(CPUWorker *cpu) override {
-        LOG(INFO) << "run cpu TaskAdd";
         const T *a = a_.ReadAsync(shared_from_this(), cpu->Device(), 0).data();
         const T *b = b_.ReadAsync(shared_from_this(), cpu->Device(), 0).data();
         T *c = c_.WriteAsync(shared_from_this(), cpu->Device(), 0).data();
@@ -295,6 +307,8 @@ int main(int argc, char **argv) {
     LOG(INFO) << "start";
 
 #if USE_CUDA
+    DataCopyInitP2P();
+
     std::vector<DevicePtr> gpu_devices;
     std::vector<WorkerPtr> gpu_workers;
     for (int i = 0; i < Device::NumGPUs(); i++) {
