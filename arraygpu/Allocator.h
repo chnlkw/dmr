@@ -14,6 +14,7 @@
 
 #include "cuda_utils.h"
 #include "defs.h"
+#include <boost/di.hpp>
 
 class AllocatorBase {
 
@@ -25,6 +26,8 @@ public:
     virtual void *Alloc(size_t size) = 0;
 
     virtual void Free(void *ptr) = 0;
+
+    virtual int Id() const { return -1; }
 };
 
 class CPUAllocator : public AllocatorBase {
@@ -159,12 +162,13 @@ public:
 
 };
 
+auto myDeviceId = [] {};
+
 class CudaAllocator : public AllocatorBase {
 protected:
     int device_;
 public:
-    CudaAllocator(int device) : device_(device) {
-    }
+    BOOST_DI_INJECT (CudaAllocator, (named = myDeviceId) int device);
 
     virtual void *Alloc(size_t size) override {
         void *ptr;
@@ -186,8 +190,10 @@ public:
         }
     }
 
-    int DeviceId() const { return device_; }
+    int Id() const override { return device_; }
 };
+
+auto PreAllocBytes = []{};
 
 class CudaPreAllocator : public CudaAllocator {
     size_t size_;
@@ -196,7 +202,7 @@ class CudaPreAllocator : public CudaAllocator {
     void *ptr_;
     std::map<off_t, size_t> m_;
 public:
-    CudaPreAllocator(int device, size_t pre_alloc_bytes, size_t align = 4096);
+    BOOST_DI_INJECT(CudaPreAllocator, (named = myDeviceId)int device, (named = PreAllocBytes)size_t pre_alloc_bytes);
 
     ~CudaPreAllocator();
 
@@ -219,10 +225,10 @@ class PreAllocator : public MultiDeviceAllocator {
 //    }
 
 public:
-    PreAllocator(size_t sz, size_t align = 64) : MultiDeviceAllocator(
-            [sz, align](int device) -> AllocatorPtr {
+    PreAllocator(size_t sz) : MultiDeviceAllocator(
+            [sz](int device) -> AllocatorPtr {
                 if (device >= 0)
-                    return AllocatorPtr(new CudaPreAllocator(device, sz, align));
+                    return AllocatorPtr(new CudaPreAllocator(device, sz));
                 else
                     return AllocatorPtr(new CudaAllocator(device));
             }) {

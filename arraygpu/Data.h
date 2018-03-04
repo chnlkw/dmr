@@ -5,7 +5,11 @@
 #ifndef DMR_DATA_H
 #define DMR_DATA_H
 
-#include "Array.h"
+#include <deque>
+//#include "Array.h"
+#include "Device.h"
+#include "DataCopy.h"
+#include "Engine.h"
 
 class DataBase {
 protected:
@@ -72,19 +76,7 @@ public:
         follows_.push_back(that);
     }
 
-    std::vector<DevicePtr> DevicesPrefered() const {
-        std::vector<DevicePtr> ret;
-        for (auto &r : GetReplicas()) {
-            ret.push_back(r->Device());
-        }
-        for (auto &f : follows_) {
-            if (f.expired())
-                continue;
-            for (auto &r : f.lock()->GetReplicas())
-                ret.push_back(r->Device());
-        }
-        return ret;
-    }
+    std::vector<DevicePtr> DevicesPrefered() const;
 };
 
 template<class T>
@@ -105,8 +97,8 @@ public:
         Write(device);
     }
 
-    explicit Data(const std::vector<T> &vec, DevicePtr device = Device::Current()) : std::shared_ptr<DataBase>(
-            new DataBase(vec.size() * sizeof(T))) {
+    explicit Data(const std::vector<T> &vec, DevicePtr device = Engine::GetCPUDevice()) :
+            std::shared_ptr<DataBase>(new DataBase(vec.size() * sizeof(T))) {
         Write(device);
         size_t bytes = vec.size() * sizeof(T);
         DataCopy(data(), device->Id(), vec.data(), -1, bytes);
@@ -114,7 +106,7 @@ public:
 
     using value_type = T;
 
-    const Array<T> &Read(DevicePtr dev = Device::Current()) const {
+    const Array<T> &Read(DevicePtr dev = Engine::GetCPUDevice()) const {
         const Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Read(dev));
         data_ = (T *) ret.data();
         return ret;
@@ -146,7 +138,7 @@ public:
 //        return ret;
 //    }
 
-    Array<T> &Write(DevicePtr dev = Device::Current(), bool keep_old = true) {
+    Array<T> &Write(DevicePtr dev = Engine::GetCPUDevice(), bool keep_old = true) {
         Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev, keep_old));
         data_ = ret.data();
         return ret;
@@ -175,7 +167,7 @@ public:
 
     std::string ToString() const {
         std::ostringstream os;
-        const T *a = Read(Device::CpuDevice()).data();
+        const T *a = Read(Engine::GetCPUDevice()).data();
         os << "Data(" << "ptr=" << a << " count=" << size() << ": ";
         for (size_t i = 0; i < size(); i++)
             os << a[i] << ',';

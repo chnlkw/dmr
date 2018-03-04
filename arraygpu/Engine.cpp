@@ -4,10 +4,12 @@
 
 #include <easylogging++.h>
 #include "Engine.h"
+#include "Task.h"
+#include "Worker.h"
+#include "Data.h"
+#include "DevicesGroup.h"
 
 #define LG(x) CLOG(x, "Engine")
-
-std::unique_ptr<Engine> Engine::engine;
 
 void TaskBase::WaitFinish() {
     while (!finished) {
@@ -27,6 +29,26 @@ void DataBase::Wait() const {
     tasks_scheduled_.clear();
 }
 
+Engine::Engine(std::unique_ptr<::CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g) :
+        cpu_device_(std::move(cpu_device)),
+        devices_(std::move(*g)) {
+    LG(INFO) << "engine created with cpu_device=" << cpu_device_.get() << " and devices.size() = " << devices_.size();
+    for (auto &d : devices_) {
+        for (auto &w : d->Workers())
+            workers_.push_back(w.get());
+    }
+}
+
+//Engine::Engine(std::unique_ptr<CPUDevice> cpu_device, std::unique_ptr<DevicesGroup> devices_group) :
+//        cpu_device_(std::move(cpu_device)),
+//        devices_(std::move(devices_group->FetchDevices())) {
+//    LG(INFO) << "engine created with cpudevice=" << cpu_device_.get() << " and devices.size() = " << devices_.size();
+//}
+
+//Engine::Engine( const di::extension::ifactory<DeviceBase, int>& device_factory) {
+//    auto d1 = device_factory.create(-1);
+//    auto d2 = device_factory.create(-1);
+//}
 
 void Engine::AddEdge(TaskPtr src, TaskPtr dst) {
     if (src->finished)
@@ -36,9 +58,9 @@ void Engine::AddEdge(TaskPtr src, TaskPtr dst) {
     tasks_[dst].in_degree++;
 }
 
-Engine::Engine(std::set<WorkerPtr> workers) :
-        workers_(std::move(workers)) {
-}
+//Engine::Engine(std::set<WorkerPtr> workers) :
+//        workers_(std::move(workers)) {
+//}
 
 bool Engine::Tick() {
     LG(INFO) << "Tick";
@@ -88,14 +110,14 @@ WorkerPtr Engine::ChooseWorker(TaskPtr t) {
         LG(DEBUG) << m << " replica count = " << m.data->last_state_.replicas.size();
         for (DevicePtr dev : m.data->DevicesPrefered()) {
             LG(DEBUG) << "\t prefer device : " << dev;
-            WorkerPtr worker_choosed;
-            for (auto ww : dev->Workers()) {
-                WorkerPtr w = ww.lock();
+            WorkerPtr worker_choosed = nullptr;
+            for (auto &w : dev->Workers()) {
+//                WorkerPtr w = ww.lock();
                 if (w && !worker_choosed)
-                    worker_choosed = w;
+                    worker_choosed = w.get();
                 if (w->Empty()) {
                     LG(INFO) << "Task " << *t << " chooses worker " << *w << " by affinity and empty";
-                    return w;
+                    return w.get();
                 }
             }
             if (worker_choosed) {
@@ -104,6 +126,7 @@ WorkerPtr Engine::ChooseWorker(TaskPtr t) {
             }
         }
     }
+    assert(!workers_.empty());
     for (auto w: workers_)
         if (w->Empty()) {
             LG(INFO) << "Task " << *t << " chooses worker " << *w << " by empty";
@@ -141,24 +164,15 @@ TaskBase &Engine::AddTask(TaskPtr task) {
     return *task;
 }
 
-void Engine::Create(std::set<WorkerPtr> workers) {
-    LG(INFO) << "Engine Create with " << workers.size() << " workers";
-    engine.reset(new Engine(std::move(workers)));
+const std::vector<std::unique_ptr<DeviceBase>> &Engine::GetDevices() const {
+    return devices_;
 }
 
-Engine &Engine::Get() {
-    if (!engine)
-        throw std::runtime_error("Engine::Create() must be called before ::Get()");
-    return *engine;
-}
+DevicePtr Engine::GetCPUDevice() { return engine->CpuDevice(); }
 
-void Engine::Finish() {
-    Device::UseCPU();
-    engine.reset();
-}
+Engine &Engine::Get() { return *engine; }
 
-Engine::~Engine() {
-    LG(INFO) << "Engine destroy with tasks : " << tasks_.size() << " " << ready_tasks_.size();
-    LG(INFO) << "Engine destroy with tasks : " << tasks_.size() << " " << ready_tasks_.size();
-    LG(INFO) << "Engine destroy Workers : " << workers_.size();
-}
+const DevicePtr Engine::CpuDevice() const { return cpu_device_.get(); }
+
+std::shared_ptr<Engine> Engine::engine;
+

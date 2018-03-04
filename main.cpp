@@ -5,12 +5,15 @@
 #include <functional>
 #include <set>
 #include <clock.h>
+#include <DevicesGroup.h>
 
-#include <All.h>
-#include "dmr.h"
+//#include <All.h>
+//#include "dmr.h"
 #include "PartitionedDMR.h"
-
 #include "easylogging++.h"
+#include <boost/di.hpp>
+
+namespace di = boost::di;
 
 auto print = [](auto &x) { std::cout << " " << x; };
 auto self = [](auto x) { return x; };
@@ -23,109 +26,6 @@ std::ostream &operator<<(std::ostream &os, const std::pair<K, V> &p) {
 };
 }
 
-//template<class Idx, class Val, class Target>
-//void Shuffle(Idx &&idx, Val &&val, Target &tar) {
-//    for_each(view::zip(idx, val), [&tar](auto x) { tar[x.first] = x.second; });
-//};
-
-
-template<int dim>
-class Index;
-
-template<>
-class Index<1> {
-    long idx_;
-
-public:
-    Index(long i = 0) : idx_(i) {}
-
-    template<class V>
-    auto &operator()(V &v) {
-        return v[idx_];
-    }
-
-    bool operator<(const Index &that) const {
-        return idx_ < that.idx_;
-    }
-};
-
-template<int dim>
-class Index {
-    long idx_;
-    Index<dim - 1> next_;
-
-public:
-    Index() : idx_(0) {}
-
-    template<class... Args>
-    Index(long i, Args... j) : idx_(i), next_(j...) {}
-
-    template<class V>
-    auto &operator()(V &v) {
-        return next_(v[idx_]);
-    }
-
-    bool operator<(const Index &that) const {
-        return idx_ < that.idx_ || (idx_ == that.idx_ && next_ < that.next_);
-    }
-};
-
-//template<class K, class V>
-//struct CSR {
-//    std::vector<K> keys;
-//    std::vector<size_t> offs;
-//    std::vector<V> values;
-//
-//public:
-//    void Build(any_view<std::pair<K, V>> rng_kv) {
-//        values = rng_kv | view::values;
-//        std::vector<K> k = rng_kv | view::keys;
-//        sort(view::zip(k, values));
-//        auto rng_kf = view::zip(k, view::ints) |
-//                      view::adjacent_filter([](auto x, auto y) { return x.first != y.first; });
-//        keys = rng_kf | view::keys;
-//        offs = rng_kf | view::values;
-//        offs.push_back(values.size());
-//    }
-//
-//    CSR() {}
-//
-//    CSR(std::vector<std::pair<K, V>> &vec) {
-//        if (vec.size() == 0)
-//            return;
-//        values.resize(vec.size());
-//        for (size_t i = 0; i < vec.size(); i++) {
-//            if (i == 0 || vec[i].first != vec[i - 1].first) {
-//                keys.push_back(vec[i].first);
-//                offs.push_back(i);
-//            }
-//            values[i] = vec[i].second;
-//        }
-//        offs.push_back(values.size());
-//    }
-//
-//    const std::vector<V> &Values() {
-//        return values;
-//    }
-//
-//    V *operator[](size_t idx) {
-//        return values.data() + offs[idx];
-//    }
-//};
-
-//void test_idx_value_1d() {
-//    auto n = 10;
-
-//    std::vector<int> val = view::ints(0, n) | view::transform([&](int i) { return dis(gen); });
-
-//    CSR<int, int> csr;
-//    csr.Build(view::zip(val, view::ints));
-//    std::vector<int> pos(n);
-//    Shuffle(csr.Values(), view::ints, pos);
-
-//    std::cout << view::all(pos) << '\n';
-//}
-
 void test_dmr(size_t npar, size_t num_element, int repeat) {
     LOG(INFO) << "start test dmr npar=" << npar << " num_element=" << num_element << " repeat=" << repeat;
 
@@ -136,12 +36,13 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
         keys[pid].resize(num_element);
         values[pid].resize(num_element);
     }
+    size_t N = 1000;
     size_t sum_keys = 0, sum_values = 0;
 #pragma omp parallel reduction(+:sum_keys, sum_values)
     {
         std::random_device rd;  //Will be used to obtain a seed for the random number engine
         std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-        std::uniform_int_distribution<uint32_t> dis(1, 100);
+        std::uniform_int_distribution<uint32_t> dis(1, N);
         for (int pid = 0; pid < npar; pid++) {
             auto &k = keys[pid];
             auto &v = values[pid];
@@ -156,7 +57,9 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
     }
 
     LOG(INFO) << "Initializing DMR keys";
-    PartitionedDMR<uint32_t, data_constructor_t> dmr2(keys);
+    size_t block = (N + npar) / npar;
+    auto partitioner = [block](uint32_t k) { return k / block; };
+    PartitionedDMR<uint32_t, data_constructor_t> dmr2(keys, partitioner);
 
     LOG(INFO) << "Initializing Input values";
     std::vector<Data<uint32_t>> d_values;
@@ -213,6 +116,22 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
         while (Engine::Get().Tick());
         printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
     }
+
+    LOG(INFO) << "Run benchmark device only";
+    for (int i = 0; i < repeat; i++) {
+        Clock clk;
+        for (auto &d : d_values) {
+        }
+        auto r = dmr2.ShuffleValues<uint32_t>(d_values);
+        size_t sum = 0;
+        for (auto &x : r) {
+            sum += x.size() * sizeof(int);
+        }
+        while (Engine::Get().Tick());
+        double t = clk.timeElapsed();
+        double speed = sum / t / (1LU << 30);
+        printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
+    }
 }
 
 template<class T>
@@ -247,7 +166,6 @@ public:
 };
 
 void test_engine() {
-
     auto &engine = Engine::Get();
 
     auto print = [](const auto &arr) {
@@ -283,42 +201,72 @@ void test_engine() {
     t2->WaitFinish();
     print(a1);
     print(a2);
-    auto &a3 = d3.Read(Device::CpuDevice());
+    auto &a3 = d3.Read(Engine::GetCPUDevice());
     CUDA_CHECK();
     print(a3);
-    auto &a4 = d4.Read(Device::CpuDevice());
+    auto &a4 = d4.Read(Engine::GetCPUDevice());
     CUDA_CHECK();
     print(a4);
 
+}
+
+void test_alltoall(size_t npar, size_t N, int rep) {
+    auto &engine = Engine::Get();
+    size_t n = N / npar;
+    size_t b = n / npar;
+    n = b * npar;
+    N = n * npar;
+    std::vector<std::vector<size_t>> counts(npar);
+    for (auto &c : counts) c.assign(npar, b);
+
+    LOG(INFO) << "test_alltoall";
+    AlltoAllDMR dmr(counts);
+    LOG(INFO) << "init values";
+    std::vector<Data<uint64_t>> d_values;
+    for (size_t i = 0; i < npar; i++) {
+        d_values.emplace_back(n);
+        auto v = d_values.back().Write().data();
+        for (size_t j = 0; j < n; j++) {
+            v[j] = (i << 32) + j;
+        }
+    }
+    LOG(INFO) << "copy to GPU seperately";
+    for (size_t i = 0; i < npar; i++) {
+        d_values[i].Write(engine.GetDevices()[i % engine.GetDevices().size()].get());
+    }
+    LOG(INFO) << "Run benchmark ";
+    for (int i = 0; i < rep; i++) {
+        Clock clk;
+
+        auto ret = dmr.ShuffleValues(d_values);
+
+        size_t sum = 0;
+        for (auto &x : ret) {
+            sum += x.size() * sizeof(int);
+        }
+        while (Engine::Get().Tick());
+        double t = clk.timeElapsed();
+        double speed = sum / t / (1LU << 30);
+        printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
+    }
 }
 
 INITIALIZE_EASYLOGGINGPP
 
 int main(int argc, char **argv) {
     el::Loggers::configureFromGlobal("logging.conf");
-    LOG(INFO) << "info";
-    CLOG(INFO, "Engine") << "engine info";
 
-//    std::vector<GPUWorker> gpu_workers;
-//    for (int i = 0; i < Device::NumGPUs(); i++)
-//        gpu_workers.emplace_back(i);
-//
-//    CPUWorker cpu_worker;
     LOG(INFO) << "start";
 
 #if USE_CUDA
-    DataCopyInitP2P();
-
-    std::vector<DevicePtr> gpu_devices;
-    std::vector<WorkerPtr> gpu_workers;
-    for (int i = 0; i < Device::NumGPUs(); i++) {
-        auto d = std::make_shared<GPUDevice>(std::make_shared<CudaPreAllocator>(i, 2LU << 30));
-        gpu_devices.push_back(d);
-        gpu_workers.push_back(std::make_shared<GPUWorker>(d));
-        d->RegisterWorker(gpu_workers.back());
-    }
-
-    Engine::Create({gpu_workers.begin(), gpu_workers.end()});
+    int num_gpu = DataCopyInitP2P();
+    auto injector = di::make_injector(
+            di::bind<CudaAllocator>().to<CudaPreAllocator>(),
+            di::bind<MyDeviceGroup>().to(GPUGroupFactory(num_gpu)),
+            di::bind<int>().named(NumWorkersOfGPUDevices).to(2),
+            di::bind<size_t>().named(PreAllocBytes).to(2LU << 30)
+    );
+    Engine::Set(injector.create<std::shared_ptr<Engine>>());
 #else
     std::vector<WorkerPtr> cpu_workers;
     cpu_workers.emplace_back(new CPUWorker());
@@ -331,12 +279,17 @@ int main(int argc, char **argv) {
     if (argc > 1) npar = atoi(argv[1]);
     if (argc > 2) nelem = atoi(argv[2]);
     if (argc > 3) rep = atoi(argv[3]);
+    test_alltoall(npar, nelem, rep);
+#if 1
     test_dmr(npar, nelem, rep);
+#endif
 
-    for (auto d : gpu_devices) {
-        Device::Use(d);
-        CUDA_CHECK();
-    }
+//    for (auto d : gpu_devices) {
+//        Device::Use(d);
+//        CUDA_CHECK();
+//    }
 
     Engine::Finish();
+//    gpu_devices.clear();
+//    gpu_workers.clear();
 }

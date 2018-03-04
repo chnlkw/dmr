@@ -8,8 +8,13 @@
 #include "cuda_utils.h"
 #include <deque>
 #include <map>
+#include <set>
+#include "defs.h"
+#include "Device.h"
+#include "DevicesGroup.h"
+#include <boost/di.hpp>
 
-#include "Worker.h"
+namespace di = boost::di;
 
 class Engine {
     struct Node {
@@ -18,50 +23,31 @@ class Engine {
     };
     std::map<TaskPtr, Node> tasks_;
 
-#if 0
-    struct DataNode {
-        bool writing = false;
-        std::vector<TaskPtr> writers;
-        std::vector<TaskPtr> readers;
-
-        const std::vector<TaskPtr> &ReadBy(TaskPtr t) {
-            if (writing) {
-                writing = false;
-                readers.clear();
-            }
-            readers.push_back(t);
-            return writers;
-        }
-
-        const std::vector<TaskPtr> &WriteBy(TaskPtr t) {
-            if (!writing) {
-                writing = true;
-                writers.clear();
-            }
-            writers.push_back(t);
-            return readers;
-        }
-    };
-
-    std::map<DataBasePtr, DataNode> data_;
-#endif
-
-    std::set<WorkerPtr> workers_;
+    std::vector<WorkerPtr> workers_;
     std::vector<TaskPtr> ready_tasks_;
 
-    static std::unique_ptr<Engine> engine;
+    std::unique_ptr<DeviceBase> cpu_device_;
+    std::vector<std::unique_ptr<DeviceBase>> devices_;
 
-    explicit Engine(std::set<WorkerPtr> workers);
+private:
+
+    static std::shared_ptr<Engine> engine;
 
 public:
 
-    ~Engine();
+    BOOST_DI_INJECT(Engine, std::unique_ptr<CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g);
 
-    static void Create(std::set<WorkerPtr> workers);
-
-    static void Finish();
+    static void Set(std::shared_ptr<Engine> e) { engine = e; }
 
     static Engine &Get();
+
+    static DevicePtr GetCPUDevice();
+
+    static void Finish() { engine.reset(); }
+
+    const DevicePtr CpuDevice() const;
+
+    const std::vector<std::unique_ptr<DeviceBase>> &GetDevices() const;
 
     TaskBase &AddTask(TaskPtr task);
 

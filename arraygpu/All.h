@@ -5,7 +5,6 @@
 #ifndef LDA_ALL_H
 #define LDA_ALL_H
 
-#include "cuda_utils.h"
 #include "Task.h"
 #include "Allocator.h"
 #include "DataCopy.h"
@@ -13,5 +12,6 @@
 #include "Data.h"
 #include "Kernels.h"
 #include "Engine.h"
+#include "Worker.h"
 
 #endif //LDA_ALL_H

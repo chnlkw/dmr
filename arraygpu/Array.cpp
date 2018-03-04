@@ -4,23 +4,27 @@
 
 #include <cassert>
 #include "Array.h"
+#include "DataCopy.h"
+#include "Device.h"
+#include "Allocator.h"
+#include "Engine.h"
 
 ArrayBase::ArrayBase(size_t bytes)
-        : allocator_(Device::Current()->GetAllocator()),
-          device_(Device::Current()) {
+        : allocator_(Engine::GetCPUDevice()->GetAllocator()),
+          device_(Engine::GetCPUDevice()) {
     Allocate(bytes);
 }
 
 ArrayBase::ArrayBase(const ArrayBase &that) :
-        allocator_(Device::Current()->GetAllocator()),
-        device_(Device::Current()) {
+        allocator_(Engine::GetCPUDevice()->GetAllocator()),
+        device_(Engine::GetCPUDevice()) {
     Allocate(that.bytes_);
     CopyFrom(that);
 }
 
 ArrayBase::ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
-        allocator_(Device::Current()->GetAllocator()),
-        device_(Device::Current()) {
+        allocator_(Engine::GetCPUDevice()->GetAllocator()),
+        device_(Engine::GetCPUDevice()) {
     Allocate(bytes);
     DataCopy(this->ptr_, this->device_->Id(), ptr, -1, this->bytes_);
 }

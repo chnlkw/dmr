@@ -2,11 +2,11 @@
 // Created by chnlkw on 11/28/17.
 //
 
-#include "DataCopy.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
 #include <easylogging++.h>
+#include "DataCopy.h"
 
 std::map<int, std::map<int, bool>> data_copy_p2p;
 
@@ -58,7 +58,7 @@ DataCopyAsync(void *dst_ptr, int dst_device, const void *src_ptr, int src_device
     }
 }
 
-void DataCopyInitP2P() {
+int DataCopyInitP2P() {
     int num_gpus;
     CUDA_CALL(cudaGetDeviceCount, &num_gpus);
     for (int i = 0; i < num_gpus; i++) {
@@ -74,5 +74,6 @@ void DataCopyInitP2P() {
             }
         }
     }
+    return num_gpus;
 }
 

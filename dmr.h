@@ -10,11 +10,8 @@
 #include <algorithm>
 #include <cassert>
 
-//#include "RMA.h"
 #include "array_constructor.h"
-
-//template<class V1, class V2, class V3>
-//void ShuffleByIdx(V1 dst, const V2 src, const V3 idx);
+#include "arraygpu/All.h"
 
 template<class T, class TOff>
 void ShuffleByIdx(std::vector<T>& p_dst, const std::vector<T> &p_src, const std::vector<TOff> &p_idx) {

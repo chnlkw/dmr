@@ -11,7 +11,6 @@
 #include <queue>
 
 #include "defs.h"
-#include "Data.h"
 
 //enum Flag {
 //    Default = 0,
@@ -37,12 +36,7 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
             return priority > that.priority;
         }
 
-        virtual void log(el::base::type::ostream_t &os) const {
-            os << "[Meta] "
-               << data << " "
-               << (read_only ? "R " : "W ")
-               << priority << ". ";
-        }
+        void log(el::base::type::ostream_t &os) const override;
     };
 
     std::vector<Meta> metas_;
@@ -54,7 +48,7 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
     std::string name_;
 
 public:
-    virtual ~TaskBase();
+    ~TaskBase() override;
 
 //    template<class Worker>
 //    void Run(Worker *t) {
@@ -86,10 +80,7 @@ public:
 
     virtual std::string Name() const { return name_; }
 
-    virtual void log(el::base::type::ostream_t &os) const {
-        os << "[Task]" << Name();
-        if (finished) os << " Finished";
-    }
+    void log(el::base::type::ostream_t &os) const override;
 
     bool IsFinished() const {
         return finished;

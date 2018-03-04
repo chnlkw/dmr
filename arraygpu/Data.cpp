@@ -2,8 +2,9 @@
 // Created by chnlkw on 2/6/18.
 //
 
-#include "Data.h"
 #include <cassert>
+#include "Array.h"
+#include "Data.h"
 
 ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) {
     if (replicas.count(dev) == 0) {
@@ -114,5 +115,19 @@ std::vector<ArrayBasePtr> DataBase::GetReplicas() const {
     for (auto &e : last_state_.replicas)
         ret.push_back(e.second);
     return std::move(ret);
+}
+
+std::vector<DevicePtr> DataBase::DevicesPrefered() const {
+    std::vector<DevicePtr> ret;
+    for (auto &r : GetReplicas()) {
+        ret.push_back(r->Device());
+    }
+    for (auto &f : follows_) {
+        if (f.expired())
+            continue;
+        for (auto &r : f.lock()->GetReplicas())
+            ret.push_back(r->Device());
+    }
+    return ret;
 }
 

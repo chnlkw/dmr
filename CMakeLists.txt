@@ -13,9 +13,9 @@ if (CUDA_FOUND)
     #    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --maxrregcount 64)
 endif ()
 
+include_directories(include)
 include_directories(logging)
 include_directories(arraygpu)
-
 
 aux_source_directory(arraygpu lib_src)
 MESSAGE("lib_src = ${lib_src}")

@@ -37,31 +37,28 @@ private:
     std::vector<DMR<TPar, ArrayConstructor>> dmr1_;
     AlltoAllDMR alltoall_;
     std::vector<DMR<TKey, ArrayConstructor>> dmr3_;
+
+    using Partitioner = std::function<int(TKey)>;
+    Partitioner partitioner_;
 public:
 
-    explicit PartitionedDMR(const std::vector<std::vector<TKey>> &mapper_keys) :
+    explicit PartitionedDMR(const std::vector<std::vector<TKey>> &mapper_keys, Partitioner partitioner) :
             size_(mapper_keys.size()),
             dmr1_(size_),
             dmr3_(size_),
-            max_key_(0) {
+            max_key_(0),
+            partitioner_(partitioner) {
         Prepare(mapper_keys);
     }
 
     void Prepare(const std::vector<std::vector<TKey>> &mapper_keys) {
-        max_key_ = 0;
-        for (auto &v : mapper_keys)
-            max_key_ = std::accumulate(v.begin(), v.end(), max_key_, [](auto a, auto b) { return std::max(a, b); });
-
-        // init partitioner
-        size_t key_partition_size = (max_key_ + size_) / size_;
-        auto partitioner = [key_partition_size](TKey k) -> TPar { return k / key_partition_size; };
 
         std::vector<std::vector<TKey>> parted_keys;
         // local partition
         for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
             auto keys = mapper_keys[mapper_id];
             std::vector<TPar> par_id(keys.size());
-            std::transform(keys.begin(), keys.end(), par_id.begin(), partitioner);
+            std::transform(keys.begin(), keys.end(), par_id.begin(), partitioner_);
             DMR<TPar> dmr(par_id);
             auto parted_key = dmr.ShuffleValues<TKey>(keys);
             parted_keys.push_back(parted_key);

@@ -5,8 +5,9 @@
 #ifndef DMR_WORKER_H
 #define DMR_WORKER_H
 
-#include "Task.h"
+#include "defs.h"
 #include "cuda_utils.h"
+#include <deque>
 
 class WorkerBase : public el::Loggable {
 protected:
@@ -24,15 +25,14 @@ public:
     DevicePtr Device() const {
         return device_;
     }
-    virtual void log(el::base::type::ostream_t &os) const {
-        os << "Worker[" << *device_ << "]";
-    }
+    virtual void log(el::base::type::ostream_t &os) const;
 };
+
 
 class CPUWorker : public WorkerBase {
     std::deque<TaskPtr> tasks_;
 public:
-    CPUWorker() : WorkerBase(Device::CpuDevice()) {}
+    CPUWorker();
 
     void RunTask(TaskPtr t) override {
         tasks_.push_back(t);
@@ -40,15 +40,7 @@ public:
 
     bool Empty() const override { return tasks_.empty(); }
 
-    std::vector<TaskPtr> GetCompleteTasks() override {
-        std::vector<TaskPtr> ret;
-        for (TaskPtr t : tasks_) {
-            t->Run(this);
-            ret.push_back(t);
-        }
-        tasks_.clear();
-        return ret;
-    }
+    std::vector<TaskPtr> GetCompleteTasks() override;
 
 };
 
@@ -59,12 +51,7 @@ class GPUWorker : public WorkerBase {
     std::deque<std::pair<cudaEvent_t, TaskPtr>> queue_;
 
 public:
-    GPUWorker(std::shared_ptr<GPUDevice> gpu) :
-            WorkerBase(gpu) {
-        CLOG(INFO, "Worker") << "Create GPU Worker with device = " << gpu->Id();
-        CUDA_CALL(cudaSetDevice, gpu->Id());
-        CUDA_CALL(cudaStreamCreate, &stream_);
-    }
+    GPUWorker(GPUDevice* gpu);
 
     virtual bool Empty() const override {
         return queue_.empty();
@@ -76,27 +63,7 @@ public:
 
 private:
 
-    void RunTask(TaskPtr t) override {
-        GPUDevice &gpu = *std::static_pointer_cast<GPUDevice>(device_);
-        CUDA_CALL(cudaSetDevice, gpu.Id());
-        cudaEvent_t e;
-        if (events_unused_.size() > 0) {
-            e = events_unused_.back();
-            events_unused_.pop_back();
-        } else {
-            CUDA_CALL(cudaEventCreate, &e);
-        }
-
-//        for (DataBasePtr d : t->GetInputs())
-//            d->ReadAsync(t, gpu_, stream_);
-//        for (DataBasePtr d : t->GetOutputs())
-//            d->WriteAsync(t, gpu_, stream_);
-
-        CLOG(INFO, "Worker") << "Device " << gpu.Id() << " Run Task " << t->Name();
-        t->Run(this);
-        CUDA_CALL(cudaEventRecord, e, stream_);
-        queue_.emplace_back(e, t);
-    }
+    void RunTask(TaskPtr t) override;
 
     std::vector<TaskPtr> GetCompleteTasks() override {
 #ifdef USE_CUDA

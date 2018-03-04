@@ -31,12 +31,13 @@ void UnifiedAllocator::Free(void *ptr) {
 
 #endif
 
-CudaPreAllocator::CudaPreAllocator(int device, size_t pre_alloc_bytes, size_t align) :
+CudaPreAllocator::CudaPreAllocator(int device, size_t pre_alloc_bytes) :
         CudaAllocator(device),
         size_(pre_alloc_bytes),
         allocated_(0),
-        align_(align) {
-
+        align_(4096) {
+    LG(INFO) << "CudaPreAllocator with device = " << device << "  pre_alloc_bytes = " << pre_alloc_bytes << " align = " << align_;
+    assert(align_ > 0);
     if (device_ < 0) {
         CUDA_CALL(cudaMallocHost, &ptr_, size_);
     } else {
@@ -76,11 +77,13 @@ void *CudaPreAllocator::Alloc(size_t size) {
     if (off + size > size_) {
         std::ostringstream os;
         os << "CudaPreAllocator :: not enough memory when allocating " << size << " remain " << size_ - allocated_;
+        LG(FATAL) << os.str();
         throw std::runtime_error(os.str().c_str());
     }
     m_.emplace(off, size);
     allocated_ += size;
-    LG(INFO) << "CurePreAllocator: Alloc=" << size << " allocated=" << allocated_ << " remain=" << size_ - allocated_;
+    LG(DEBUG) << "CudaPreAllocator: " << Id() << " Alloc=" << size << " ptr_ = " << ptr_ << " off = " << off;
+    LG(INFO) << "CudaPreAllocator: " << Id() << " Alloc=" << size << " allocated=" << allocated_ << " remain=" << size_ - allocated_;
     return (char *) ptr_ + off;
 }
 
@@ -89,10 +92,15 @@ void CudaPreAllocator::Free(void *ptr) {
     auto it = m_.find(off);
     if (it == m_.end()) {
         std::ostringstream os;
-        os << "CudaPreAllocator :: Free pointer not found ptr=" << ptr << " off = " << off;
+        os << "CudaPreAllocator :: " << Id() << " Free pointer not found ptr=" << ptr << " off = " << off;
+        LG(FATAL) << os.str();
         throw std::runtime_error(os.str().c_str());
     }
     allocated_ -= it->second;
-    LG(INFO) << "CurePreAllocator: free=" << it->second << " allocated=" << allocated_ << " remain=" << size_ - allocated_;
+    LG(INFO) << "CurePreAllocator: " << Id() << " Free=" << it->second << " allocated=" << allocated_ << " remain=" << size_ - allocated_;
     m_.erase(it);
+}
+
+CudaAllocator::CudaAllocator(int device) : device_(device) {
+    LG(INFO) << "CudaAllocator with device = " << device;
 }

@@ -7,9 +7,10 @@
 
 #include <queue>
 #include "defs.h"
-#include "Allocator.h"
+#include "cuda_utils.h"
+#include <boost/di.hpp>
 
-class DeviceBase : public el::Loggable {
+class DeviceBase : public el::Loggable, public std::enable_shared_from_this<DeviceBase> {
     struct PriorityTask {
         int priority;
         TaskPtr task;
@@ -19,25 +20,17 @@ class DeviceBase : public el::Loggable {
         }
     };
 
-    int id_;
-    AllocatorPtr allocator_;
-    std::vector<std::weak_ptr<WorkerBase>> workers_;
+    std::unique_ptr<AllocatorBase> allocator_;
+protected:
+    std::vector<std::unique_ptr<WorkerBase>> workers_;
 
 public:
-    explicit DeviceBase(int id, AllocatorPtr allocator) :
-            id_(id),
-            allocator_(allocator) {
-    }
+    explicit DeviceBase(std::unique_ptr<AllocatorBase> allocator);
 
-    virtual ~DeviceBase() {}
-
+    virtual ~DeviceBase();
 
     AllocatorPtr GetAllocator() {
-        return allocator_;
-    }
-
-    void RegisterWorker(WorkerPtr w) {
-        workers_.push_back(w);
+        return allocator_.get();
     }
 
     const auto &Workers() const {
@@ -46,70 +39,46 @@ public:
 
     bool Tick();
 
-    int Id() const { return id_; }
+    int Id() const;
 
-    virtual void log(el::base::type::ostream_t &os) const {
-        os << "Device[" << id_ << "]";
-    }
+    void log(el::base::type::ostream_t &os) const override;
 };
 
 class CPUDevice : public DeviceBase {
 public:
 #ifdef USE_CUDA
-    CPUDevice() : DeviceBase(-1, AllocatorPtr(new CudaPreAllocator(-1, 8LU<<30))) { }
+    CPUDevice();
 #else
     CPUDevice() : DeviceBase(-1, AllocatorPtr(new CPUAllocator)) { }
 #endif
 };
 
+auto NumWorkersOfGPUDevices = []{};
+
 class GPUDevice : public DeviceBase {
 public:
-    GPUDevice(std::shared_ptr<CudaAllocator> allocator) :
-            DeviceBase(allocator->DeviceId(), allocator) {
-    }
+    BOOST_DI_INJECT (GPUDevice, std::unique_ptr<CudaAllocator> allocator,(named = NumWorkersOfGPUDevices) int num_workers = 1);
 };
 
-class Device {
-    static DevicePtr current;
-    static DevicePtr cpu;
-public:
-    static DevicePtr Current() {
+//class Device {
+//    static DevicePtr current;
+//    static DevicePtr cpu;
+//public:
+//    static DevicePtr Current() {
 //        printf("current device = %d\n", current->Id());
-        return current;
-    }
+//        return current;
+//    }
 
-    static DevicePtr UseCPU() { return current = cpu; }
+//    static DevicePtr UseCPU() { return current = cpu; }
 
-    static DevicePtr CpuDevice() { return cpu; }
+//    static DevicePtr CpuDevice() { return cpu; }
 
-    static void Use(DevicePtr dev) {
-        current = dev;
-    }
+//    static void Use(DevicePtr dev) {
+//        current = dev;
+//    }
 
-    static int NumGPUs() {
+//    static int NumGPUs();
 
-#ifdef USE_CUDA
-        int count;
-        CUDA_CALL(cudaGetDeviceCount, &count);
-        return count;
-#else
-        return 0;
-#endif
-    }
-
-};
-
-//template<class V>
-//DevicePtr Device(const V &v);
-//
-//template<class T>
-//DevicePtr Device(const std::vector<T> &v) {
-//    return Device::CpuDevice();
-//}
-//
-//template<class T>
-//DevicePtr Device(const Data<T> &v) {
-//    return v.DeviceCurrent();
-//}
+//};
 
 #endif //DMR_DEVICE_H

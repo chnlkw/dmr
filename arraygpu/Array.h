@@ -5,10 +5,11 @@
 #ifndef LDA_ARRAY_H_H
 #define LDA_ARRAY_H_H
 
+#include "cuda_utils.h"
 #include "defs.h"
-#include "Allocator.h"
-#include "Device.h"
-#include "DataCopy.h"
+//#include "Allocator.h"
+//#include "Device.h"
+//#include "DataCopy.h"
 
 class ArrayBase {
 protected:

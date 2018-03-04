@@ -10,3 +10,4 @@ TaskBase::~TaskBase() {
     LG(INFO) << "Destory " << Name();
 
 }
+

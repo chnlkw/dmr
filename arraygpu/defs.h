@@ -37,12 +37,19 @@ class Engine;
 using ArrayBasePtr = std::shared_ptr<ArrayBase>;
 template<class T>
 using ArrayPtr = std::shared_ptr<Array<T>>;
-using AllocatorPtr = std::shared_ptr<AllocatorBase>;
-using DevicePtr = std::shared_ptr<DeviceBase>;
+using AllocatorPtr = AllocatorBase*;
 using NodePtr = std::shared_ptr<Node>;
 using DataBasePtr = std::shared_ptr<DataBase>;
 //template<class T> using DataPtr = std::shared_ptr<Data<T>>;
 using TaskPtr = std::shared_ptr<TaskBase>;
-using WorkerPtr = std::shared_ptr<WorkerBase>;
+
+class GPUDevice;
+
+using DevicePtr = DeviceBase*;
+using WorkerPtr = WorkerBase*;
+
+class CudaAllocator;
+
+class DevicesGroup;
 
 #endif //LDA_DEFS_H

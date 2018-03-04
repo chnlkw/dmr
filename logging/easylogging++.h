@@ -1,3 +1,6 @@
+#define ELPP_FEATURE_PERFORMANCE_TRACKING
+#define ELPP_STL_LOGGING
+
 //
 //  Bismillah ar-Rahmaan ar-Raheem
 //
