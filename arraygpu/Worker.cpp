@@ -27,7 +27,7 @@ GPUWorker::GPUWorker(GPUDevice *gpu) :
 }
 
 void GPUWorker::RunTask(TaskPtr t) {
-    GPUDevice &gpu = *static_cast<GPUDevice*>(device_);
+    GPUDevice &gpu = *static_cast<GPUDevice *>(device_);
     CUDA_CALL(cudaSetDevice, gpu.Id());
     cudaEvent_t e;
     if (events_unused_.size() > 0) {
@@ -37,12 +37,7 @@ void GPUWorker::RunTask(TaskPtr t) {
         CUDA_CALL(cudaEventCreate, &e);
     }
 
-//        for (DataBasePtr d : t->GetInputs())
-//            d->ReadAsync(t, gpu_, stream_);
-//        for (DataBasePtr d : t->GetOutputs())
-//            d->WriteAsync(t, gpu_, stream_);
-
-    CLOG(INFO, "Worker") << "Device " << gpu.Id() << " Run Task " << t->Name();
+    CLOG(INFO, "Worker") << stream_ << " " << *this << " Run Task " << t->Name();
     t->Run(this);
     CUDA_CALL(cudaEventRecord, e, stream_);
     queue_.emplace_back(e, t);

@@ -70,7 +70,8 @@ public:
             assert(value_out.back().size() == recv_sum_[i]);
         }
         for (size_t i = 0; i < size_; i++) {
-            for (size_t j = 0; j < size_; j++) {
+            for (size_t k = 0; k < size_; k++) {
+                size_t j = (i + k) % size_;
 //                printf(" i %zu , j %zu\n", i, j);
                 Algorithm::Copy(value_in[j], send_offs_[j][i], value_out[i], recv_offs_[i][j], send_counts_[j][i]);
 

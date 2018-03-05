@@ -12,7 +12,7 @@ void TaskBase::log(el::base::type::ostream_t &os) const {
 }
 
 void WorkerBase::log(el::base::type::ostream_t &os) const {
-    os << "Worker[" << *device_ << "]";
+    os << "Worker["<< id_ << ", device=" << *device_ << "]";
 }
 
 void DeviceBase::log(el::base::type::ostream_t &os) const {

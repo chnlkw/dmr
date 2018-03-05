@@ -8,9 +8,10 @@
 #include <queue>
 #include "defs.h"
 #include "cuda_utils.h"
+#include "Runnable.h"
 #include <boost/di.hpp>
 
-class DeviceBase : public el::Loggable, public std::enable_shared_from_this<DeviceBase> {
+class DeviceBase : public el::Loggable, public std::enable_shared_from_this<DeviceBase>, public Runnable {
     struct PriorityTask {
         int priority;
         TaskPtr task;
@@ -47,17 +48,37 @@ public:
 class CPUDevice : public DeviceBase {
 public:
 #ifdef USE_CUDA
+
     CPUDevice();
+
+    void RunTask(TaskPtr t) override {
+        LOG(FATAL) << "Not implemented";
+    }
+
+    size_t NumRunningTasks() const override { return 0; }
+
+    std::vector<TaskPtr> GetCompleteTasks() override {
+        return {};
+    }
+
 #else
     CPUDevice() : DeviceBase(-1, AllocatorPtr(new CPUAllocator)) { }
 #endif
 };
 
-auto NumWorkersOfGPUDevices = []{};
+auto NumWorkersOfGPUDevices = [] {};
 
 class GPUDevice : public DeviceBase {
+    size_t running_tasks_ = 0;
 public:
-    BOOST_DI_INJECT (GPUDevice, std::unique_ptr<CudaAllocator> allocator,(named = NumWorkersOfGPUDevices) int num_workers = 1);
+    BOOST_DI_INJECT (GPUDevice, std::unique_ptr<CudaAllocator> allocator, (named = NumWorkersOfGPUDevices)
+            int num_workers = 1);
+
+    void RunTask(TaskPtr t) override;
+
+    size_t NumRunningTasks() const override { return running_tasks_; }
+
+    std::vector<TaskPtr> GetCompleteTasks() override;
 };
 
 //class Device {

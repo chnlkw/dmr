@@ -12,22 +12,26 @@
 #include "defs.h"
 #include "Device.h"
 #include "DevicesGroup.h"
+#include "Runnable.h"
 #include <boost/di.hpp>
 
 namespace di = boost::di;
 
-class Engine {
+class Engine : public Runnable {
     struct Node {
         size_t in_degree = 0;
         std::vector<TaskPtr> next_tasks_;
     };
     std::map<TaskPtr, Node> tasks_;
 
-    std::vector<WorkerPtr> workers_;
+//    std::vector<WorkerPtr> workers_;
     std::vector<TaskPtr> ready_tasks_;
 
     std::unique_ptr<DeviceBase> cpu_device_;
     std::vector<std::unique_ptr<DeviceBase>> devices_;
+    std::set<DevicePtr> device_entries_;
+
+    size_t num_running_tasks_ = 0;
 
 private:
 
@@ -43,6 +47,10 @@ public:
 
     static DevicePtr GetCPUDevice();
 
+    size_t NumRunningTasks() const override {
+        return num_running_tasks_;
+    }
+
     static void Finish() { engine.reset(); }
 
     const DevicePtr CpuDevice() const;
@@ -57,9 +65,13 @@ public:
         return AddTask(t);
     };
 
+    void RunTask(TaskPtr t) override;
+
     bool Tick();
 
-    WorkerPtr ChooseWorker(TaskPtr t);
+    std::vector<TaskPtr> GetCompleteTasks() override;
+
+    DevicePtr ChooseDevice(TaskPtr t);
 
 private:
     void AddEdge(TaskPtr src, TaskPtr dst);

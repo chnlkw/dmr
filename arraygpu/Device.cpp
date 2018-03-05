@@ -29,6 +29,20 @@ GPUDevice::GPUDevice(std::unique_ptr<CudaAllocator> allocator, int num_workers) 
     }
 }
 
+std::vector<TaskPtr> GPUDevice::GetCompleteTasks() {
+    std::vector<TaskPtr> ret;
+    for (auto& w : workers_) {
+        auto r = w->GetCompleteTasks();
+        ret.insert(ret.end(), r.begin(), r.end());
+    }
+    return ret;
+}
+
+void GPUDevice::RunTask(TaskPtr t) {
+    running_tasks_++;
+    ChooseRunnable(workers_.begin(), workers_.end())->RunTask(t);
+}
+
 DeviceBase::DeviceBase(std::unique_ptr<AllocatorBase> allocator) :
         allocator_(std::move(allocator)) {
 }

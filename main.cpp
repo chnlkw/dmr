@@ -197,7 +197,7 @@ void test_engine() {
 
     engine.AddTask(t2);
 
-    while (engine.Tick());
+//    while (engine.Tick());
     t2->WaitFinish();
     print(a1);
     print(a2);
@@ -263,7 +263,7 @@ int main(int argc, char **argv) {
     auto injector = di::make_injector(
             di::bind<CudaAllocator>().to<CudaPreAllocator>(),
             di::bind<MyDeviceGroup>().to(GPUGroupFactory(num_gpu)),
-            di::bind<int>().named(NumWorkersOfGPUDevices).to(2),
+            di::bind<int>().named(NumWorkersOfGPUDevices).to(num_gpu),
             di::bind<size_t>().named(PreAllocBytes).to(2LU << 30)
     );
     Engine::Set(injector.create<std::shared_ptr<Engine>>());

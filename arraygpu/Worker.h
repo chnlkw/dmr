@@ -7,24 +7,23 @@
 
 #include "defs.h"
 #include "cuda_utils.h"
+#include "Runnable.h"
 #include <deque>
 
-class WorkerBase : public el::Loggable {
+class WorkerBase : public el::Loggable, public Runnable {
 protected:
     DevicePtr device_;
+    size_t id_;
 public:
-    WorkerBase(DevicePtr d) : device_(d) {
+    explicit WorkerBase(DevicePtr d) : device_(d) {
+        static size_t s_id = 0;
+        id_ = s_id++;
     }
-
-    virtual void RunTask(TaskPtr t) = 0;
-
-    virtual std::vector<TaskPtr> GetCompleteTasks() = 0;
-
-    virtual bool Empty() const = 0;
 
     DevicePtr Device() const {
         return device_;
     }
+
     virtual void log(el::base::type::ostream_t &os) const;
 };
 
@@ -51,9 +50,9 @@ class GPUWorker : public WorkerBase {
     std::deque<std::pair<cudaEvent_t, TaskPtr>> queue_;
 
 public:
-    GPUWorker(GPUDevice* gpu);
+    explicit GPUWorker(GPUDevice *gpu);
 
-    virtual bool Empty() const override {
+    bool Empty() const override {
         return queue_.empty();
     }
 
@@ -64,6 +63,10 @@ public:
 private:
 
     void RunTask(TaskPtr t) override;
+
+    size_t NumRunningTasks() const override {
+        return queue_.size();
+    }
 
     std::vector<TaskPtr> GetCompleteTasks() override {
 #ifdef USE_CUDA
