@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.h"
+
 #ifdef USE_CUDA
 
 #include <cuda.h>

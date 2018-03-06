@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
 
     LOG(INFO) << "start";
 
-#if USE_CUDA
+#ifdef USE_CUDA
     int num_gpu = DataCopyInitP2P();
     auto injector = di::make_injector(
             di::bind<CudaAllocator>().to<CudaPreAllocator>(),
@@ -268,6 +268,7 @@ int main(int argc, char **argv) {
     );
     Engine::Set(injector.create<std::shared_ptr<Engine>>());
 #else
+#error "CUDA not defined"
     std::vector<WorkerPtr> cpu_workers;
     cpu_workers.emplace_back(new CPUWorker());
     Engine::Create({cpu_workers.begin(), cpu_workers.end()});

@@ -13,6 +13,8 @@
 #include "array_constructor.h"
 #include "arraygpu/All.h"
 
+#define LG(x) CLOG(x, "DMR")
+
 template<class T, class TOff>
 void ShuffleByIdx(std::vector<T>& p_dst, const std::vector<T> &p_src, const std::vector<TOff> &p_idx) {
     size_t size = p_dst.size();
@@ -29,6 +31,10 @@ void ShuffleByIdx(std::vector<T>& p_dst, const std::vector<T> &p_src, const std:
 
 template<class T, class TOff>
 void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
+//    LG(INFO) << dst.size() << " ?= " << src.size() << " ?= " << idx.size();
+    assert(dst.size() == src.size());
+    assert(dst.size() == idx.size());
+
     struct TaskShuffle : TaskBase {
         Data<T> dst_, src_;
         Data<TOff> idx_;
@@ -36,6 +42,7 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
         TaskShuffle(Engine &engine, Data<T> dst, Data<T> src, Data<TOff> idx) :
                 TaskBase(engine, "Shuffle"),
                 dst_(dst), src_(src), idx_(idx) {
+//            LG(INFO) << dst.size() << " ?= " << src.size() << " ?= " << idx.size();
             assert(dst.size() == src.size());
             assert(dst.size() == idx.size());
             AddInput(src);
@@ -79,6 +86,7 @@ public:
     DMR() {}
 
     DMR(const std::vector<TKey> &keys) {
+        LG(INFO) << "create DMR num_keys = " << keys.size();
         Prepare(keys);
     }
 
@@ -149,5 +157,6 @@ public:
 
 };
 
+#undef LG
 
 #endif //DMR_DMR_H

@@ -5,18 +5,16 @@
 #ifndef DMR_PARTITIONEDDMR_H
 #define DMR_PARTITIONEDDMR_H
 
-//#include <range/v3/all.hpp>
 #include "dmr.h"
 #include "array_constructor.h"
 #include "AlltoAllDMR.h"
 
 #include <algorithm>
 
-//auto max = [](auto a, auto b) { return std::max(a, b); };
 auto f_key_neq = [](auto a, auto b) { return a.first != b.first; };
 auto f_key_less = [](auto a, auto b) { return a.first < b.first; };
 
-//using namespace ranges;
+#define LG(x) CLOG(x, "DMR")
 
 template<class TKey, class ArrayConstructor = vector_constructor_t>
 class PartitionedDMR {
@@ -48,6 +46,7 @@ public:
             dmr3_(size_),
             max_key_(0),
             partitioner_(partitioner) {
+        LG(INFO) << "create PartitionedDMR num_par = " << mapper_keys.size();
         Prepare(mapper_keys);
     }
 
@@ -98,6 +97,7 @@ public:
 
     template<class TValue>
     std::vector<Vector<TValue>> ShuffleValues(const std::vector<Vector<TValue>> &value_in) const {
+        assert(value_in.size() == size_);
         std::vector<Vector<TValue>> parted_values;
         for (size_t i = 0; i < size_; i++) {
             parted_values.push_back(dmr1_[i].template ShuffleValues<TValue>(value_in[i]));
@@ -132,5 +132,6 @@ public:
     const std::vector<DMR<TKey>> &GetDMR3() const { return dmr3_; }
 };
 
+#undef LG
 
 #endif //DMR_PARTITIONEDDMR_H

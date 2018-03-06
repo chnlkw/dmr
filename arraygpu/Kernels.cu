@@ -3,7 +3,6 @@
 //
 
 #include "Kernels.h"
-#include "cuda_utils.h"
 
 template<class T, class TOff>
 __global__ void shuffle_by_idx_kernel(T *dst, const T *src, const TOff *idx, size_t size) {
@@ -31,7 +30,7 @@ __global__ void gpu_add_kernel(T *c, const T *a, const T *b, size_t size) { // c
 }
 
 template<class T>
-void gpu_add(T *c, const T *a, const T *b, size_t size, cudaStream_t stream) { // c[i] = a[i] + b[i]
+void gpu_add<>(T *c, const T *a, const T *b, size_t size, cudaStream_t stream) { // c[i] = a[i] + b[i]
     gpu_add_kernel << < (size + 31) / 32, 32, 0, stream >> > (c, a, b, size);
 }
 
