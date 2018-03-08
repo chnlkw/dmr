@@ -211,6 +211,13 @@ public:
     void Free(void *ptr) override;
 };
 
+auto PreAllocBytesCPU = []{};
+
+class CudaPreAllocatorCPU : public CudaPreAllocator {
+    BOOST_DI_INJECT(CudaPreAllocatorCPU,(named = PreAllocBytesCPU) size_t pre_alloc_bytes) :
+            CudaPreAllocator(-1, pre_alloc_bytes){}
+
+};
 class Allocator : public MultiDeviceAllocator {
     static AllocatorPtr factory(int device) { return AllocatorPtr(new CudaAllocator(device)); }
 

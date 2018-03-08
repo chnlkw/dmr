@@ -31,7 +31,7 @@ public:
 class CPUWorker : public WorkerBase {
     std::deque<TaskPtr> tasks_;
 public:
-    CPUWorker();
+    explicit CPUWorker(CPUDevice *cpu);
 
     void RunTask(TaskPtr t) override {
         tasks_.push_back(t);
@@ -41,6 +41,7 @@ public:
 
     std::vector<TaskPtr> GetCompleteTasks() override;
 
+    size_t NumRunningTasks() const override { return tasks_.size(); }
 };
 
 class GPUWorker : public WorkerBase {

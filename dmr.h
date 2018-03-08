@@ -74,7 +74,7 @@ class DMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
 
-    using TOff = size_t;
+    using TOff = uint32_t;
 
 private:
     size_t size_;

@@ -50,7 +50,23 @@ public:
     BOOST_DI_INJECT(GPUGroup, (named = NumGPUInGroup) size_t n, const di::extension::ifactory<DeviceBase> &device_factory);
 };
 
-struct MyDeviceGroup : std::vector<std::unique_ptr<DeviceBase>> {};
+struct MyDeviceGroup : std::vector<std::shared_ptr<DeviceBase>> {};
+
+struct CPUGroupFactory {
+    size_t num_cpus;
+
+    explicit CPUGroupFactory(size_t num_cpus) : num_cpus(num_cpus) {}
+    template<class TInjector, class TDependency>
+    auto operator()(const TInjector &injector, const TDependency &) const {
+        auto g = std::make_unique<MyDeviceGroup>();
+        for (size_t i = 0; i < num_cpus; i++) {
+            LOG(INFO) << "MyDeviceGroup creating CPUDevice " << i;
+            g->push_back(injector.template create<std::shared_ptr<CPUDevice>>());
+        }
+        return std::move(g);
+    }
+
+};
 
 struct GPUGroupFactory {
     size_t num_gpus;
@@ -68,7 +84,7 @@ struct GPUGroupFactory {
         auto g = std::make_unique<MyDeviceGroup>();
         for (size_t i = 0; i < num_gpus; i++) {
             LOG(INFO) << "MyDeviceGroup creating i = " << i;
-            g->push_back(inj.template create<std::unique_ptr<GPUDevice>>());
+            g->emplace_back(inj.template create<GPUDevice*>()); //singleton
         }
         return std::move(g);
     }

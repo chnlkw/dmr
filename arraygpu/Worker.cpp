@@ -7,7 +7,7 @@
 #include "Task.h"
 #include "Engine.h"
 
-CPUWorker::CPUWorker() : WorkerBase(Engine::GetCPUDevice()) {}
+CPUWorker::CPUWorker(CPUDevice *cpu) : WorkerBase(cpu) {}
 
 std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
     std::vector<TaskPtr> ret;

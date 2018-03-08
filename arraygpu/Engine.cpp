@@ -27,7 +27,7 @@ void DataBase::Wait() const {
     tasks_scheduled_.clear();
 }
 
-Engine::Engine(std::unique_ptr<::CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g) :
+Engine::Engine(std::shared_ptr<CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g) :
         cpu_device_(std::move(cpu_device)),
         devices_(std::make_move_iterator(g->begin()), std::make_move_iterator(g->end())) {
     LG(INFO) << "engine created with cpu_device=" << cpu_device_.get() << " and devices.size() = " << devices_.size();
@@ -121,7 +121,7 @@ TaskBase &Engine::AddTask(TaskPtr task) {
     return *task;
 }
 
-const std::vector<std::unique_ptr<DeviceBase>> &Engine::GetDevices() const {
+const std::vector<std::shared_ptr<DeviceBase>> &Engine::GetDevices() const {
     return devices_;
 }
 

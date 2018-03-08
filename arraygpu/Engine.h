@@ -27,8 +27,8 @@ class Engine : public Runnable {
 //    std::vector<WorkerPtr> workers_;
     std::vector<TaskPtr> ready_tasks_;
 
-    std::unique_ptr<DeviceBase> cpu_device_;
-    std::vector<std::unique_ptr<DeviceBase>> devices_;
+    std::shared_ptr<DeviceBase> cpu_device_;
+    std::vector<std::shared_ptr<DeviceBase>> devices_;
     std::set<DevicePtr> device_entries_;
 
     size_t num_running_tasks_ = 0;
@@ -39,7 +39,7 @@ private:
 
 public:
 
-    BOOST_DI_INJECT(Engine, std::unique_ptr<CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g);
+    BOOST_DI_INJECT(Engine, std::shared_ptr<CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g);
 
     static void Set(std::shared_ptr<Engine> e) { engine = e; }
 
@@ -55,7 +55,7 @@ public:
 
     const DevicePtr CpuDevice() const;
 
-    const std::vector<std::unique_ptr<DeviceBase>> &GetDevices() const;
+    const std::vector<std::shared_ptr<DeviceBase>> &GetDevices() const;
 
     TaskBase &AddTask(TaskPtr task);
 

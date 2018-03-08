@@ -75,7 +75,7 @@ void ArrayBase::Allocate(size_t bytes) {
 
 void ArrayBase::CopyFrom(const ArrayBase &that, bool check_size_equal) {
     size_t bytes = std::min(this->bytes_, that.bytes_);
-    CLOG(INFO, "Array") << "Copy" << that.device_ << " -> " << this->device_;
+    CLOG(INFO, "Array") << "Copy" << that.device_->Id() << " -> " << this->device_->Id();
     if (check_size_equal)
         assert(this->bytes_ == that.bytes_);
     DataCopy(this->ptr_, this->device_->Id(), that.ptr_, that.device_->Id(), bytes);

@@ -34,6 +34,8 @@ public:
         return allocator_.get();
     }
 
+    std::vector<TaskPtr> GetCompleteTasks() override;
+
     const auto &Workers() const {
         return workers_;
     }
@@ -51,15 +53,9 @@ public:
 
     CPUDevice();
 
-    void RunTask(TaskPtr t) override {
-        LOG(FATAL) << "Not implemented";
-    }
+    void RunTask(TaskPtr t) override;
 
     size_t NumRunningTasks() const override { return 0; }
-
-    std::vector<TaskPtr> GetCompleteTasks() override {
-        return {};
-    }
 
 #else
     CPUDevice() : DeviceBase(-1, AllocatorPtr(new CPUAllocator)) { }
@@ -78,7 +74,6 @@ public:
 
     size_t NumRunningTasks() const override { return running_tasks_; }
 
-    std::vector<TaskPtr> GetCompleteTasks() override;
 };
 
 //class Device {

@@ -22,12 +22,7 @@ class PartitionedDMR {
     using Vector = decltype(ArrayConstructor::template Construct<T>());
 public:
     using TPar = uint32_t;
-    using TOff = size_t;
-
-    struct Reducer {
-        Vector<TKey> keys;
-        Vector<TOff> offs;
-    };
+    using TOff = uint32_t;
 
 private:
     size_t size_;
@@ -38,6 +33,9 @@ private:
 
     using Partitioner = std::function<int(TKey)>;
     Partitioner partitioner_;
+
+    std::vector<Vector<TKey>> keys_;
+    std::vector<Vector<TOff>> offs_;
 public:
 
     explicit PartitionedDMR(const std::vector<std::vector<TKey>> &mapper_keys, Partitioner partitioner) :
@@ -48,6 +46,10 @@ public:
             partitioner_(partitioner) {
         LG(INFO) << "create PartitionedDMR num_par = " << mapper_keys.size();
         Prepare(mapper_keys);
+        for (size_t i = 0; i < size_; i++) {
+            keys_.push_back(dmr3_[i].Keys());
+            offs_.push_back(dmr3_[i].Offs());
+        }
     }
 
     void Prepare(const std::vector<std::vector<TKey>> &mapper_keys) {
@@ -114,8 +116,10 @@ public:
     }
 
     const Vector<TKey> &Keys(size_t i) const { return dmr3_[i].Keys(); }
+    const auto &Keys() const { return keys_; }
 
     const Vector<TOff> &Offs(size_t i) const { return dmr3_[i].Offs(); }
+    const auto &Offs() const { return offs_; }
 
     size_t Size() const {
         return size_;

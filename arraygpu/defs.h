@@ -44,6 +44,7 @@ using DataBasePtr = std::shared_ptr<DataBase>;
 using TaskPtr = std::shared_ptr<TaskBase>;
 
 class GPUDevice;
+class CPUDevice;
 
 using DevicePtr = DeviceBase *;
 using WorkerPtr = WorkerBase *;
