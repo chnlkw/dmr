@@ -69,12 +69,10 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
     Engine::Get().AddTask<TaskShuffle>(dst, src, idx);
 }
 
-template<class TKey, class ArrayConstructor = vector_constructor_t>
+template<class TKey, class TOff, class ArrayConstructor = vector_constructor_t>
 class DMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
-
-    using TOff = uint32_t;
 
 private:
     size_t size_;
@@ -86,6 +84,9 @@ public:
     DMR() {}
 
     DMR(const std::vector<TKey> &keys) {
+        static_assert(std::is_integral<TKey>::value, "TKey must be integral");
+        static_assert(std::is_integral<TOff>::value, "TOff must be integral");
+
         LG(INFO) << "create DMR num_keys = " << keys.size();
         Prepare(keys);
     }

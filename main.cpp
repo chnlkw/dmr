@@ -59,7 +59,7 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
     LOG(INFO) << "Initializing DMR keys";
     size_t block = (N + npar) / npar;
     auto partitioner = [block](uint32_t k) { return k / block; };
-    PartitionedDMR<uint32_t, data_constructor_t> dmr2(keys, partitioner);
+    PartitionedDMR<uint32_t, uint32_t, data_constructor_t> dmr2(keys, partitioner);
 
     LOG(INFO) << "Initializing Input values";
     std::vector<Data<uint32_t>> d_values;

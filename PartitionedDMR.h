@@ -16,20 +16,19 @@ auto f_key_less = [](auto a, auto b) { return a.first < b.first; };
 
 #define LG(x) CLOG(x, "DMR")
 
-template<class TKey, class ArrayConstructor = vector_constructor_t>
+template<class TKey, class TOff, class ArrayConstructor = vector_constructor_t>
 class PartitionedDMR {
     template<class T>
     using Vector = decltype(ArrayConstructor::template Construct<T>());
 public:
     using TPar = uint32_t;
-    using TOff = uint32_t;
 
 private:
     size_t size_;
     TKey max_key_;
-    std::vector<DMR<TPar, ArrayConstructor>> dmr1_;
+    std::vector<DMR<TPar, TOff, ArrayConstructor>> dmr1_;
     AlltoAllDMR alltoall_;
-    std::vector<DMR<TKey, ArrayConstructor>> dmr3_;
+    std::vector<DMR<TKey, TOff, ArrayConstructor>> dmr3_;
 
     using Partitioner = std::function<int(TKey)>;
     Partitioner partitioner_;
@@ -54,13 +53,16 @@ public:
 
     void Prepare(const std::vector<std::vector<TKey>> &mapper_keys) {
 
+        static_assert(std::is_integral<TKey>::value, "TKey must be integral");
+        static_assert(std::is_integral<TOff>::value, "TOff must be integral");
+
         std::vector<std::vector<TKey>> parted_keys;
         // local partition
         for (size_t mapper_id = 0; mapper_id < size_; mapper_id++) {
             auto keys = mapper_keys[mapper_id];
             std::vector<TPar> par_id(keys.size());
             std::transform(keys.begin(), keys.end(), par_id.begin(), partitioner_);
-            DMR<TPar> dmr(par_id);
+            DMR<TPar, TOff> dmr(par_id);
             auto parted_key = dmr.ShuffleValues<TKey>(keys);
             parted_keys.push_back(parted_key);
             dmr1_[mapper_id] = std::move(dmr);
@@ -91,6 +93,8 @@ public:
             size_(that.Size()),
             max_key_(that.MaxKey()),
             alltoall_(that.GetAlltoallDMR()) {
+        static_assert(std::is_integral<TKey>::value, "TKey must be integral");
+        static_assert(std::is_integral<TOff>::value, "TOff must be integral");
         for (auto &d : that.GetDMR1())
             dmr1_.push_back(d);
         for (auto &d : that.GetDMR3())
@@ -116,9 +120,11 @@ public:
     }
 
     const Vector<TKey> &Keys(size_t i) const { return dmr3_[i].Keys(); }
+
     const auto &Keys() const { return keys_; }
 
     const Vector<TOff> &Offs(size_t i) const { return dmr3_[i].Offs(); }
+
     const auto &Offs() const { return offs_; }
 
     size_t Size() const {
@@ -129,11 +135,11 @@ public:
         return max_key_;
     }
 
-    const std::vector<DMR<TPar>> &GetDMR1() const { return dmr1_; }
+    const std::vector<DMR<TPar, TOff>> &GetDMR1() const { return dmr1_; }
 
     const AlltoAllDMR &GetAlltoallDMR() const { return alltoall_; }
 
-    const std::vector<DMR<TKey>> &GetDMR3() const { return dmr3_; }
+    const std::vector<DMR<TKey, TOff>> &GetDMR3() const { return dmr3_; }
 };
 
 #undef LG
