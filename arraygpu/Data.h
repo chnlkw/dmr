@@ -72,6 +72,8 @@ public:
 
     void Wait() const;
 
+    void ResizeBytes(size_t bytes);
+
     void Follow(DataBasePtr that) {
         follows_.push_back(that);
     }
@@ -155,6 +157,10 @@ public:
 
     size_t size() const {
         return get()->Bytes() / sizeof(T);
+    }
+
+    void resize(size_t count) {
+        get()->ResizeBytes(count * sizeof(T));
     }
 
     T *data() { return data_; }

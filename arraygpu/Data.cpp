@@ -6,6 +6,8 @@
 #include "Array.h"
 #include "Data.h"
 
+#define LG(x) CLOG(x, "Data")
+
 ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) {
     if (replicas.count(dev) == 0) {
         ArrayBasePtr arr;
@@ -20,6 +22,9 @@ ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) 
         arr->CopyFromAsync(*from, stream);
         replicas[dev] = arr;
     }
+    if (replicas[dev]->GetBytes() > bytes)
+        replicas[dev]->ResizeBytes(bytes);
+
     assert(replicas[dev]->GetBytes() == bytes);
     return replicas[dev];
 }
@@ -129,5 +134,17 @@ std::vector<DevicePtr> DataBase::DevicesPrefered() const {
             ret.push_back(r->Device());
     }
     return ret;
+}
+
+void DataBase::ResizeBytes(size_t bytes) {
+    Wait();
+    if (last_state_.bytes > 0 && bytes > last_state_.bytes) {
+        LG(FATAL) << "Data increasing size not supported yet";
+    }
+    if (last_state_.bytes == 0 && last_state_.replicas.size() > 0) {
+        LG(FATAL) << "Data size is 0, but has replicas";
+    }
+    LG(INFO) << "resize " << last_state_.bytes << " to " << bytes;
+    last_state_.bytes = bytes;
 }
 

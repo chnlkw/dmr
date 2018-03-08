@@ -52,6 +52,12 @@ public:
 
     size_t GetBytes() const { return bytes_; }
 
+    void ResizeBytes(size_t bytes) {
+        if (bytes > bytes_)
+            abort();
+        bytes_ = bytes;
+    }
+
     void *data() const { return ptr_; }
 };
 
@@ -129,6 +135,10 @@ public:
 
     size_t size() const {
         return Count();
+    }
+
+    void resize(size_t size) {
+        ResizeBytes(size * sizeof(T));
     }
 
     Array<T> CopyTo(int device) {

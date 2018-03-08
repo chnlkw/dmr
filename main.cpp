@@ -177,17 +177,17 @@ void test_engine() {
     };
 
     auto d1 = Data<int>(10);
-    Array<int> &a1 = d1.Write();
+    d1.Write();
     auto d2 = Data<int>(d1.size());
-    Array<int> &a2 = d2.Write();
+    d2.Write();
     for (int i = 0; i < d1.size(); i++) {
-        a1[i] = i;
-        a2[i] = i * i;
+        d1[i] = i;
+        d2[i] = i * i;
     }
     auto d3 = Data<int>(d1.size());
 
-    print(a1);
-    print(a2);
+    print(d1);
+    print(d2);
 //    auto t1 = std::make_shared<TaskAdd<int>>(d1, d2, d3);
 //    engine.RegisterTask(t1);
     engine.AddTask<TaskAdd<int>>(d1, d2, d3);
@@ -199,14 +199,16 @@ void test_engine() {
 
 //    while (engine.Tick());
     t2->WaitFinish();
-    print(a1);
-    print(a2);
-    auto &a3 = d3.Read(Engine::GetCPUDevice());
+    LOG(INFO) << "After resize";
+    d1.resize(2);
+    print(d1);
+    print(d2);
+    d3.Read(Engine::GetCPUDevice());
     CUDA_CHECK();
-    print(a3);
-    auto &a4 = d4.Read(Engine::GetCPUDevice());
+    print(d3);
+    d4.Read(Engine::GetCPUDevice());
     CUDA_CHECK();
-    print(a4);
+    print(d4);
 
 }
 
