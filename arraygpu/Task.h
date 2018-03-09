@@ -24,12 +24,12 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
 
     struct Meta : public el::Loggable {
         DataBasePtr data;
-        bool read_only = true;
+        bool is_read_only = true;
         int priority = 0;
 
         Meta(DataBasePtr d, bool b, int p) :
                 data(d),
-                read_only(b),
+                is_read_only(b),
                 priority(p) {}
 
         bool operator<(const Meta &that) const {

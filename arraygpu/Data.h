@@ -92,6 +92,11 @@ public:
     Data() : std::shared_ptr<DataBase>(new DataBase()) {
     }
 
+    void swap(Data<T> & that) {
+        std::swap(data_, that.data_);
+        std::shared_ptr<DataBase>::swap(that);
+    }
+
     explicit Data(size_t count) : std::shared_ptr<DataBase>(new DataBase(count * sizeof(T))) {
     }
 

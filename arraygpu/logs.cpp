@@ -22,7 +22,7 @@ void DeviceBase::log(el::base::type::ostream_t &os) const {
 void TaskBase::Meta::log(el::base::type::ostream_t &os) const {
     os << "[Meta] "
        << data << " "
-       << (read_only ? "R " : "W ")
+       << (is_read_only ? "R " : "W ")
        << priority << ". ";
 }
 

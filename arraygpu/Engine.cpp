@@ -145,7 +145,7 @@ std::vector<TaskPtr> Engine::GetCompleteTasks() {
 void Engine::RunTask(TaskPtr task) {
     num_running_tasks_++;
     for (auto &m : task->GetMetas()) {
-        const auto &depend_tasks = m.data->RegisterTask(task, m.read_only);
+        const auto &depend_tasks = m.data->RegisterTask(task, m.is_read_only);
         for (const auto &depend_task : depend_tasks) {
             if (!depend_task.expired())
                 AddEdge(depend_task.lock(), task);
