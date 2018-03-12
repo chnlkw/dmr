@@ -60,8 +60,8 @@ public:
     TaskBase &AddTask(TaskPtr task);
 
     template<class Task, class... Args>
-    TaskBase &AddTask(Args... args) {
-        auto t = std::make_shared<Task>(*this, args...);
+    TaskBase &AddTask(Args&&... args) {
+        auto t = std::make_shared<Task>(*this, std::forward<Args>(args)...);
         return AddTask(t);
     };
 

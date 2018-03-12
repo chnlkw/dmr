@@ -30,6 +30,7 @@ ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) 
 }
 
 ArrayBasePtr DataBase::State::WriteAt(const DevicePtr &dev, cudaStream_t stream, bool keep_old) {
+    assert(bytes > 0);
 //    Invalid others
     for (auto it = replicas.begin(); it != replicas.end();) {
         if (it->first != dev) {

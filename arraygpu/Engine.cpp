@@ -3,6 +3,7 @@
 //
 
 #include <easylogging++.h>
+#include <atomic>
 #include "Engine.h"
 #include "Task.h"
 #include "Worker.h"
@@ -59,12 +60,18 @@ void Engine::AddEdge(TaskPtr src, TaskPtr dst) {
 //}
 
 bool Engine::Tick() {
+    static std::atomic<bool> ticking;
+    assert(!ticking);
+    ticking = true;
     LG(INFO) << "Tick";
+
 
     GetCompleteTasks();
 
-    if (Empty())
+    if (Empty()) {
+        ticking = false;
         return false;
+    }
 
     for (auto t : ready_tasks_) {
 //        std::cout << "Engine Run Task " << std::endl;
@@ -82,6 +89,7 @@ bool Engine::Tick() {
 //        LG(DEBUG) << "          End";
     }
     ready_tasks_.clear();
+    ticking = false;
     return true;
 }
 

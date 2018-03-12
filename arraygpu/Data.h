@@ -92,7 +92,7 @@ public:
     Data() : std::shared_ptr<DataBase>(new DataBase()) {
     }
 
-    void swap(Data<T> & that) {
+    void swap(Data<T> &that) {
         std::swap(data_, that.data_);
         std::shared_ptr<DataBase>::swap(that);
     }
@@ -120,8 +120,9 @@ public:
     }
 
     const Array<T> &ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) const {
-        data_ = nullptr;
-        return *std::static_pointer_cast<Array<T>>(get()->ReadAsync(task, dev, stream));
+        const Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->ReadAsync(task, dev, stream));
+        data_ = (T *) ret.data();
+        return ret;
     }
 
 //    Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, size_t bytes) {
@@ -130,8 +131,9 @@ public:
 //    }
 
     Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, bool keep_old = false) {
-        data_ = nullptr;
-        return *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, keep_old));
+        Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, keep_old));
+        data_ = ret.data();
+        return ret;
     }
 
 //    Array<T> &ReadWriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) {
