@@ -6,7 +6,6 @@
 #define DMR_DATA_H
 
 #include <deque>
-//#include "Array.h"
 #include "Device.h"
 #include "DataCopy.h"
 #include "Engine.h"
@@ -35,6 +34,8 @@ protected:
     const std::vector<std::weak_ptr<TaskBase>> &RegisterTask(const TaskPtr &t, bool read_only);
 
     std::vector<std::weak_ptr<DataBase>> follows_;
+
+    mutable void *data_ = nullptr;
 
 public:
 
@@ -78,13 +79,16 @@ public:
         follows_.push_back(that);
     }
 
+    void *data() const { return data_; }
+
+    void *data() { return data_; }
+
     std::vector<DevicePtr> DevicesPrefered() const;
 };
 
 template<class T>
 class Data : public std::shared_ptr<DataBase> {
 private:
-    mutable T *data_ = nullptr;
 
     //add policy
 
@@ -93,7 +97,6 @@ public:
     }
 
     void swap(Data<T> &that) {
-        std::swap(data_, that.data_);
         std::shared_ptr<DataBase>::swap(that);
     }
 
@@ -115,13 +118,11 @@ public:
 
     const Array<T> &Read(DevicePtr dev = Engine::GetCPUDevice()) const {
         const Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Read(dev));
-        data_ = (T *) ret.data();
         return ret;
     }
 
     const Array<T> &ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream) const {
         const Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->ReadAsync(task, dev, stream));
-        data_ = (T *) ret.data();
         return ret;
     }
 
@@ -132,7 +133,6 @@ public:
 
     Array<T> &WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, bool keep_old = false) {
         Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->WriteAsync(task, dev, stream, keep_old));
-        data_ = ret.data();
         return ret;
     }
 
@@ -149,7 +149,6 @@ public:
 
     Array<T> &Write(DevicePtr dev = Engine::GetCPUDevice(), bool keep_old = true) {
         Array<T> &ret = *std::static_pointer_cast<Array<T>>(get()->Write(dev, keep_old));
-        data_ = ret.data();
         return ret;
     }
 
@@ -170,9 +169,9 @@ public:
         get()->ResizeBytes(count * sizeof(T));
     }
 
-    T *data() { return data_; }
+    T *data() { return (T *) get()->data(); }
 
-    const T *data() const { return data_; }
+    const T *data() const { return (const T *) get()->data(); }
 
     const T &operator[](ssize_t idx) const { return data()[idx]; }
 

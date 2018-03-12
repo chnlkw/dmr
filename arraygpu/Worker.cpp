@@ -5,14 +5,30 @@
 #include "Worker.h"
 #include "Device.h"
 #include "Task.h"
+#include "Data.h"
 #include "Engine.h"
+
+#define LG(x) CLOG(x, "Worker")
 
 CPUWorker::CPUWorker(CPUDevice *cpu) : WorkerBase(cpu) {}
 
 std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
     std::vector<TaskPtr> ret;
     for (TaskPtr t : tasks_) {
-        t->Run(this);
+        CPUTask *cputask = dynamic_cast<CPUTask *>(t.get());
+        CLOG(INFO, "Worker") << *this << " Run Task " << *t;
+        if (cputask) {
+            t->PrepareData(device_, 0);
+            for (auto &m : t->GetMetas()) {
+                if (m.is_read_only) {
+                    m.data->ReadAsync(t, device_, 0);
+                } else {
+                    m.data->WriteAsync(t, device_, 0);
+                }
+            }
+            (*cputask)(this);
+        } else
+            t->Run(this);
         ret.push_back(t);
     }
     tasks_.clear();
@@ -37,8 +53,19 @@ void GPUWorker::RunTask(TaskPtr t) {
         CUDA_CALL(cudaEventCreate, &e);
     }
 
-    CLOG(INFO, "Worker") << stream_ << " " << *this << " Run Task " << t->Name();
-    t->Run(this);
+    GPUTask *gputask = dynamic_cast<GPUTask *>(t.get());
+    CLOG(INFO, "Worker") << stream_ << " " << *this << " Run Task " << t->Name() << " gputask_ptr " << gputask;
+    if (gputask) {
+        for (auto &m : t->GetMetas()) {
+            if (m.is_read_only) {
+                m.data->ReadAsync(t, device_, stream_);
+            } else {
+                m.data->WriteAsync(t, device_, stream_);
+            }
+        }
+        (*gputask)(this);
+    } else
+        t->Run(this);
     CUDA_CALL(cudaEventRecord, e, stream_);
     queue_.emplace_back(e, t);
 }

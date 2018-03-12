@@ -34,6 +34,8 @@ public:
         return allocator_.get();
     }
 
+    virtual int ScoreRunTask(TaskPtr t);
+
     std::vector<TaskPtr> GetCompleteTasks() override;
 
     const auto &Workers() const {
@@ -60,6 +62,8 @@ public:
 #else
     CPUDevice() : DeviceBase(-1, AllocatorPtr(new CPUAllocator)) { }
 #endif
+
+    int ScoreRunTask(TaskPtr t) override;
 };
 
 auto NumWorkersOfGPUDevices = [] {};
@@ -74,6 +78,7 @@ public:
 
     size_t NumRunningTasks() const override { return running_tasks_; }
 
+    int ScoreRunTask(TaskPtr t) override;
 };
 
 //class Device {

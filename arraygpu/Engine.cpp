@@ -76,7 +76,6 @@ bool Engine::Tick() {
     for (auto t : ready_tasks_) {
 //        std::cout << "Engine Run Task " << std::endl;
         DevicePtr d = ChooseDevice(t);
-        LG(INFO) << "Choose Device " << *d << " to run task " << *t;
         d->RunTask(t);
 //        LG(DEBUG) << "After run task " << *t;
 //        for (auto &m : t->GetMetas()) {
@@ -94,16 +93,25 @@ bool Engine::Tick() {
 }
 
 DevicePtr Engine::ChooseDevice(TaskPtr t) {
+    std::map<DevicePtr, float> data_score;
     for (auto &m : t->GetMetas()) {
         LG(DEBUG) << m << " replica count = " << m.data->last_state_.replicas.size();
         for (DevicePtr dev : m.data->DevicesPrefered()) {
-            if (device_entries_.find(dev) != device_entries_.end()) {
-                LG(DEBUG) << "\t prefer device : " << dev;
-                return dev;
-            }
+            data_score[dev] += m.priority;
         }
     }
-    return ChooseRunnable(devices_.begin(), devices_.end()).get();
+    std::map<DevicePtr, float> dev_score;
+    for (auto &dev : devices_) {
+        dev_score[dev.get()] = data_score[dev.get()] + 1.0f / (1 + dev->NumRunningTasks());
+        dev_score[dev.get()] += 1000 * dev->ScoreRunTask(t);
+//            LG(DEBUG) << *t << "is runnable on " << *dev;
+    }
+    assert(!dev_score.empty());
+    DevicePtr dev_choosed = std::max_element(dev_score.begin(), dev_score.end(),
+                                             [](auto a, auto b) { return a.second < b.second; })->first;
+//    return ChooseRunnable(devices_.begin(), devices_.end()).get();
+    LG(INFO) << "Choose " << *dev_choosed << " to run " << *t;
+    return dev_choosed;
 }
 
 void Engine::CheckTaskReady(TaskPtr task) {

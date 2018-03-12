@@ -11,6 +11,7 @@
 #include <queue>
 
 #include "defs.h"
+#include "cuda_utils.h"
 
 //enum Flag {
 //    Default = 0,
@@ -18,6 +19,21 @@
 //    Exclusive = 2
 //};
 
+struct GPUTask : public std::function<void(GPUWorker *)> {
+    int score;
+
+    explicit GPUTask(std::function<void(GPUWorker *)> f, int score = 1) :
+            std::function<void(GPUWorker *)>(f),
+            score(score) {
+    }
+};
+
+struct CPUTask : public std::function<void(CPUWorker *)> {
+    int score;
+
+    explicit CPUTask(std::function<void(CPUWorker *)> f, int score = 1) :
+            std::function<void(CPUWorker *)>(f), score(score) {}
+};
 
 class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Loggable {
     TaskBase(const TaskBase &) = delete;
@@ -45,6 +61,10 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
 
     friend class Engine;
 
+    friend class WithOutputs;
+
+    friend class WithInputs;
+
     std::string name_;
 
 public:
@@ -54,6 +74,8 @@ public:
 //    void Run(Worker *t) {
 //        RunWorker(t);
 //    }
+
+    void PrepareData(DevicePtr dev, cudaStream_t stream);
 
     const auto &GetMetas() {
         std::sort(metas_.begin(), metas_.end());
@@ -88,14 +110,25 @@ public:
 
 protected:
     TaskBase(Engine &engine, std::string name = "nonamed task") :
-            engine_(engine), name_(name) {}
+            engine_(engine), name_(name) {
+    }
 
     void AddInput(DataBasePtr data, int priority = 1) {
         metas_.push_back(Meta{data, true, priority});
     }
 
+    void AddInputs(std::vector<DataBasePtr> data, int priority = 1) {
+        for (auto &d : data)
+            AddInput(d, priority);
+    }
+
     void AddOutput(DataBasePtr data, int priority = 2) {
         metas_.push_back(Meta{data, false, priority});
+    }
+
+    void AddOutputs(std::vector<DataBasePtr> data, int priority = 2) {
+        for (auto &d : data)
+            AddOutput(d, priority);
     }
 
     void Finish() {

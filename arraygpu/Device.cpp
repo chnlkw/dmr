@@ -62,3 +62,17 @@ void CPUDevice::RunTask(TaskPtr t) {
     workers_.at(0)->RunTask(t);
     LG(INFO) << "CPUDevice run task " << *t;
 }
+
+int DeviceBase::ScoreRunTask(TaskPtr t) {
+    return 0;
+}
+
+int CPUDevice::ScoreRunTask(TaskPtr t) {
+    CPUTask *c = dynamic_cast<CPUTask *>(t.get());
+    return c ? c->score : 0;
+}
+
+int GPUDevice::ScoreRunTask(TaskPtr t) {
+    GPUTask *c = dynamic_cast<GPUTask *>(t.get());
+    return c ? c->score : 0;
+}

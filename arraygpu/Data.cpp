@@ -60,6 +60,7 @@ ArrayBasePtr DataBase::ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t strea
 //    tasks_writing_.clear();
 //    tasks_reading_.push_back(task);
     ArrayBasePtr arr = last_state_.ReadAt(dev, stream);
+    data_ = arr->data();
     return arr;
 }
 
@@ -72,6 +73,7 @@ ArrayBasePtr DataBase::ReadAsync(TaskPtr task, DevicePtr dev, cudaStream_t strea
 
 ArrayBasePtr DataBase::WriteAsync(TaskPtr task, DevicePtr dev, cudaStream_t stream, bool keep_old) {
     ArrayBasePtr arr = last_state_.WriteAt(dev, stream, keep_old);
+    data_ = arr->data();
     return arr;
 //    return WriteAsync(task, dev, stream, last_state_.bytes);
 }
@@ -80,6 +82,7 @@ ArrayBasePtr DataBase::Read(DevicePtr dev) const {
     Wait();
     ArrayBasePtr ret = last_state_.ReadAt(dev, 0);
     CUDA_CALL(cudaStreamSynchronize, 0);
+    data_ = ret->data();
     return ret;
 }
 
@@ -87,6 +90,7 @@ ArrayBasePtr DataBase::Write(DevicePtr dev, bool keep_old) {
     Wait();
     ArrayBasePtr ret = last_state_.WriteAt(dev, 0, keep_old);
     CUDA_CALL(cudaStreamSynchronize, 0);
+    data_ = ret->data();
     return ret;
 }
 
