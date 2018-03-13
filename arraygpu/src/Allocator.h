@@ -12,9 +12,9 @@
 #include <sstream>
 #include <functional>
 
-#include "cuda_utils.h"
 #include "defs.h"
 #include <boost/di.hpp>
+#include "cuda_utils.h"
 
 class AllocatorBase {
 

@@ -86,7 +86,7 @@ void Copy(const Data<T> &src, size_t src_off, Data<T> &dst, size_t dst_off, size
 //             src.begin() + src_off, src.DeviceCurrent()->Id(),
 //             count * sizeof(T));
 //    std::copy(src.begin() + src_off, src.begin() + src_off + count, dst.begin() + dst_off);
-    Engine::Get().AddTask<TaskCopy>(
+    Car::Get().AddTask<TaskCopy>(
             src, src_off,
             dst, dst_off,
             count);

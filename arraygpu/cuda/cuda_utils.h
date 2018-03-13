@@ -1,6 +1,7 @@
 #pragma once
 
-#include "config.h"
+//#include "config.h"
+#define USE_CUDA
 
 #ifdef USE_CUDA
 

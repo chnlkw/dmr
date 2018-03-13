@@ -10,8 +10,6 @@
 #include "Allocator.h"
 #include "Device.h"
 
-namespace di = boost::di;
-
 template<class T>
 struct Generator {
     std::vector<std::unique_ptr<T>> data;
@@ -48,7 +46,7 @@ auto NumGPUInGroup = [] {};
 class GPUGroup : public DevicesGroup {
 public:
     BOOST_DI_INJECT(GPUGroup, (named = NumGPUInGroup)
-            size_t n, const di::extension::ifactory<DeviceBase> &device_factory);
+            size_t n, const boost::di::extension::ifactory<DeviceBase> &device_factory);
 };
 
 struct MyDeviceGroup : std::vector<std::shared_ptr<DeviceBase>> {
@@ -79,8 +77,8 @@ struct GPUGroupFactory {
     template<class TInjector, class TDependency>
     auto operator()(const TInjector &injector, const TDependency &) const {
         TInjector &injector_(const_cast<TInjector &>(injector));
-        auto inj = di::make_injector(std::move(injector_),
-                                     di::bind<int>().named(myDeviceId).to([]() {
+        auto inj = boost::di::make_injector(std::move(injector_),
+                                     boost::di::bind<int>().named(myDeviceId).to([]() {
                                          static int seq = 0;
                                          return seq++;
                                      })
@@ -106,8 +104,8 @@ struct CPUGPUGroupFactory {
     template<class TInjector, class TDependency>
     auto operator()(const TInjector &injector, const TDependency &) const {
         TInjector &injector_(const_cast<TInjector &>(injector));
-        auto inj = di::make_injector(std::move(injector_),
-                                     di::bind<int>().named(myDeviceId).to([]() {
+        auto inj = boost::di::make_injector(std::move(injector_),
+                                     boost::di::bind<int>().named(myDeviceId).to([]() {
                                          static int seq = 0;
                                          return seq++;
                                      })

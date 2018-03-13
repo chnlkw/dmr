@@ -4,7 +4,7 @@
 
 #include "DevicesGroup.h"
 
-GPUGroup::GPUGroup(size_t n, const di::extension::ifactory<DeviceBase> &device_factory) {
+GPUGroup::GPUGroup(size_t n, const boost::di::extension::ifactory<DeviceBase> &device_factory) {
     LOG(INFO) << "GPUGroupSize " << n;
     for (size_t i = 0; i < n; i++) {
         LOG(INFO) << "devices group " << i;

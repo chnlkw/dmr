@@ -12,6 +12,7 @@
 
 #include "defs.h"
 #include "cuda_utils.h"
+#include "Car.h"
 
 //enum Flag {
 //    Default = 0,
@@ -111,6 +112,10 @@ public:
 protected:
     TaskBase(Engine &engine, std::string name = "nonamed task") :
             engine_(engine), name_(name) {
+    }
+
+    TaskBase(std::string name = "nonamed task") :
+            engine_(Car::Get()), name_(name) {
     }
 
     void AddInput(DataBasePtr data, int priority = 1) {

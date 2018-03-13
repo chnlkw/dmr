@@ -13,30 +13,26 @@ if (CUDA_FOUND)
     #    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} --maxrregcount 64)
 endif ()
 
-configure_file(config.h.in config.h @ONLY)
+#configure_file(config.h.in config.h @ONLY)
 
-aux_source_directory(arraygpu lib_src)
+#aux_source_directory(arraygpu lib_src)
 #MESSAGE("lib_src = ${lib_src}")
 
-add_library(dmr ${lib_src} logging/easylogging++.cc)
-
-target_include_directories(dmr
-        PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
-        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-        PUBLIC include
-        PUBLIC logging
-        PUBLIC arraygpu)
+add_subdirectory(arraygpu)
 
 add_executable(main main.cpp)
-target_link_libraries(main dmr)
+target_link_libraries(main engine)
 
-if (CUDA_FOUND)
-    MESSAGE("build dmr_kernel library PUBLIC ${CUDA_INCLUDE_DIRS}")
-    include_directories(${CMAKE_CURRENT_BINARY_DIR})
-    cuda_add_library(dmr_kernel arraygpu/Kernels.cu)
-    target_link_libraries(main dmr_kernel)
-    target_include_directories(dmr_kernel
-            PUBLIC ${CUDA_INCLUDE_DIRS})
-endif ()
+#if (CUDA_FOUND)
+#    MESSAGE("build dmr_kernel library PUBLIC ${CUDA_INCLUDE_DIRS}")
+#    include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(arraygpu/src)
+include_directories(arraygpu/logging)
+include_directories(arraygpu/cuda)
+#include_directories(arraygpu/include)
+cuda_add_library(dmr_kernel Kernels.cu)
+target_link_libraries(dmr_kernel engine)
+target_link_libraries(main dmr_kernel)
+#endif ()
 
-configure_file(logging/logging.conf logging.conf)
+#configure_file(arraygpu/logging/logging.conf logging.conf)

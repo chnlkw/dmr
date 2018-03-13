@@ -3,6 +3,7 @@
 //
 
 #include "Kernels.h"
+#include "Worker.h"
 
 template<class T, class TOff>
 __global__ void shuffle_by_idx_kernel(T *dst, const T *src, const TOff *idx, size_t size) {
@@ -40,3 +41,19 @@ void gpu_add<>(T *c, const T *a, const T *b, size_t size, cudaStream_t stream) {
 }
 
 template void gpu_add<int>(int *, const int *, const int *, size_t, cudaStream_t stream);
+
+TaskAdd2::TaskAdd2(const Data<int> &a, const Data<int> &b, Data<int> &c) :
+        TaskBase("Add2"),
+        CPUTask([&](CPUWorker *cpu) {
+            for (int i = 0; i < c.size(); i++) {
+                c[i] = a[i] + b[i];
+            }
+        }, 1),
+        GPUTask([&](GPUWorker *gpu) {
+            gpu_add(c.data(), a.data(), b.data(), c.size(), gpu->Stream());
+        }, 2) {
+    assert(a.size() == b.size());
+    assert(a.size() == c.size());
+    AddInputs({a, b});
+    AddOutputs({c});
+}

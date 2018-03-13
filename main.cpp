@@ -5,10 +5,10 @@
 #include <functional>
 #include <set>
 #include <clock.h>
-#include <DevicesGroup.h>
 
 //#include <All.h>
 //#include "dmr.h"
+#include "Car.h"
 #include "PartitionedDMR.h"
 #include "easylogging++.h"
 #include <boost/di.hpp>
@@ -69,7 +69,7 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
 
     LOG(INFO) << "Shufflevalues";
     auto result = dmr2.ShuffleValues<uint32_t>(d_values);
-    while (Engine::Get().Tick());
+    while (Car::Get().Tick());
     LOG(INFO) << "Shufflevalues OK";
 
 //    for (auto &v : result) {
@@ -113,7 +113,7 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
         }
         double t = clk.timeElapsed();
         double speed = sum / t / (1LU << 30);
-        while (Engine::Get().Tick());
+        while (Car::Get().Tick());
         printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
     }
 
@@ -127,7 +127,7 @@ void test_dmr(size_t npar, size_t num_element, int repeat) {
         for (auto &x : r) {
             sum += x.size() * sizeof(int);
         }
-        while (Engine::Get().Tick());
+        while (Car::Get().Tick());
         double t = clk.timeElapsed();
         double speed = sum / t / (1LU << 30);
         printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
@@ -165,28 +165,8 @@ public:
     }
 };
 
-template<class T>
-class TaskAdd2 : public TaskBase, public CPUTask, public GPUTask {
-public:
-    TaskAdd2(Engine &engine, const Data<T> &a, const Data<T> &b, Data<T> &c) :
-            TaskBase(engine, "Add2"),
-            CPUTask([&](CPUWorker *cpu) {
-                for (int i = 0; i < c.size(); i++) {
-                    c[i] = a[i] + b[i];
-                }
-            }, 1),
-            GPUTask([&](GPUWorker *gpu) {
-                gpu_add(c.data(), a.data(), b.data(), c.size(), gpu->Stream());
-            }, 2) {
-        assert(a.size() == b.size());
-        assert(a.size() == c.size());
-        AddInputs({a, b});
-        AddOutputs({c});
-    }
-};
-
 void test_engine() {
-    auto &engine = Engine::Get();
+    auto &engine = Car::Get();
 
     auto print = [](const auto &arr) {
         printf("%p : ", &arr[0]);
@@ -214,8 +194,8 @@ void test_engine() {
 
     auto d4 = Data<int>(d1.size());
 //    auto t2 = std::make_shared<TaskAdd2<int>>(engine, d2, d3, d4);
-    auto p2 = new TaskAdd2<int>(engine, d2, d3, d4);
-    auto t2 = std::shared_ptr<TaskAdd2<int>>(p2);
+    auto p2 = new TaskAdd2(d2, d3, d4);
+    auto t2 = std::shared_ptr<TaskAdd2>(p2);
 
 
     engine.AddTask(t2);
@@ -230,17 +210,17 @@ void test_engine() {
     d1.resize(2);
     print(d1);
     print(d2);
-    d3.Read(Engine::GetCPUDevice());
+    d3.Read(Car::GetCPUDevice());
     CUDA_CHECK();
     print(d3);
-    d4.Read(Engine::GetCPUDevice());
+    d4.Read(Car::GetCPUDevice());
     CUDA_CHECK();
     print(d4);
 
 }
 
 void test_alltoall(size_t npar, size_t N, int rep) {
-    auto &engine = Engine::Get();
+    auto &engine = Car::Get();
     size_t n = N / npar;
     size_t b = n / npar;
     n = b * npar;
@@ -273,7 +253,7 @@ void test_alltoall(size_t npar, size_t N, int rep) {
         for (auto &x : ret) {
             sum += x.size() * sizeof(int);
         }
-        while (Engine::Get().Tick());
+        while (Car::Get().Tick());
         double t = clk.timeElapsed();
         double speed = sum / t / (1LU << 30);
         printf("sum %lu bytes, time %lf seconds, speed %lf GB/s\n", sum, t, speed);
@@ -295,12 +275,12 @@ int main(int argc, char **argv) {
             di::bind<int>().named(NumWorkersOfGPUDevices).to(num_gpu),
             di::bind<size_t>().named(PreAllocBytes).to(2LU << 30)
     );
-    Engine::Set(injector.create<std::shared_ptr<Engine>>());
+    Car::Set(injector.create<std::shared_ptr<Engine>>());
 #else
 #error "CUDA not defined"
     std::vector<WorkerPtr> cpu_workers;
     cpu_workers.emplace_back(new CPUWorker());
-    Engine::Create({cpu_workers.begin(), cpu_workers.end()});
+    Car::Create({cpu_workers.begin(), cpu_workers.end()});
 #endif
     test_engine();
     int npar = 2;
@@ -319,7 +299,7 @@ int main(int argc, char **argv) {
 //        CUDA_CHECK();
 //    }
 
-    Engine::Finish();
+    Car::Finish();
 //    gpu_devices.clear();
 //    gpu_workers.clear();
 }

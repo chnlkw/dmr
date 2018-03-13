@@ -7,24 +7,24 @@
 #include "DataCopy.h"
 #include "Device.h"
 #include "Allocator.h"
-#include "Engine.h"
+#include "Car.h"
 
 ArrayBase::ArrayBase(size_t bytes)
-        : allocator_(Engine::GetCPUDevice()->GetAllocator()),
-          device_(Engine::GetCPUDevice()) {
+        : allocator_(Car::GetCPUDevice()->GetAllocator()),
+          device_(Car::GetCPUDevice()) {
     Allocate(bytes);
 }
 
 ArrayBase::ArrayBase(const ArrayBase &that) :
-        allocator_(Engine::GetCPUDevice()->GetAllocator()),
-        device_(Engine::GetCPUDevice()) {
+        allocator_(Car::GetCPUDevice()->GetAllocator()),
+        device_(Car::GetCPUDevice()) {
     Allocate(that.bytes_);
     CopyFrom(that);
 }
 
 ArrayBase::ArrayBase(void *ptr, size_t bytes) : //copy from cpu ptr
-        allocator_(Engine::GetCPUDevice()->GetAllocator()),
-        device_(Engine::GetCPUDevice()) {
+        allocator_(Car::GetCPUDevice()->GetAllocator()),
+        device_(Car::GetCPUDevice()) {
     Allocate(bytes);
     DataCopy(this->ptr_, this->device_->Id(), ptr, -1, this->bytes_);
 }

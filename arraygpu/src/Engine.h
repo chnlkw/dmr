@@ -15,8 +15,6 @@
 #include "Runnable.h"
 #include <boost/di.hpp>
 
-namespace di = boost::di;
-
 class Engine : public Runnable {
     struct Node {
         size_t in_degree = 0;
@@ -35,23 +33,24 @@ class Engine : public Runnable {
 
 private:
 
-    static std::shared_ptr<Engine> engine;
+//    static std::shared_ptr<Engine> engine;
 
 public:
 
     BOOST_DI_INJECT(Engine, std::shared_ptr<CPUDevice> cpu_device, std::unique_ptr<MyDeviceGroup> g);
 
-    static void Set(std::shared_ptr<Engine> e) { engine = e; }
+//    static void Set(std::shared_ptr<Engine> e) { engine = e; }
 
-    static Engine &Get();
+//    static Engine &Get();
 
-    static DevicePtr GetCPUDevice();
+//    static DevicePtr GetCPUDevice();
+
+//    static void Finish() { engine.reset(); }
 
     size_t NumRunningTasks() const override {
         return num_running_tasks_;
     }
 
-    static void Finish() { engine.reset(); }
 
     const DevicePtr CpuDevice() const;
 
@@ -60,7 +59,7 @@ public:
     TaskBase &AddTask(TaskPtr task);
 
     template<class Task, class... Args>
-    TaskBase &AddTask(Args&&... args) {
+    TaskBase &AddTask(Args &&... args) {
         auto t = std::make_shared<Task>(*this, std::forward<Args>(args)...);
         return AddTask(t);
     };

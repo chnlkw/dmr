@@ -141,10 +141,6 @@ const std::vector<std::shared_ptr<DeviceBase>> &Engine::GetDevices() const {
     return devices_;
 }
 
-DevicePtr Engine::GetCPUDevice() { return engine->CpuDevice(); }
-
-Engine &Engine::Get() { return *engine; }
-
 const DevicePtr Engine::CpuDevice() const { return cpu_device_.get(); }
 
 std::vector<TaskPtr> Engine::GetCompleteTasks() {
@@ -170,5 +166,4 @@ void Engine::RunTask(TaskPtr task) {
     CheckTaskReady(task);
 }
 
-std::shared_ptr<Engine> Engine::engine;
 

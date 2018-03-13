@@ -11,7 +11,7 @@
 #include <cassert>
 
 #include "array_constructor.h"
-#include "arraygpu/All.h"
+#include "All.h"
 
 #define LG(x) CLOG(x, "DMR")
 
@@ -66,7 +66,7 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
             shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), src_.size(), gpu->Stream());
         }
     };
-    Engine::Get().AddTask<TaskShuffle>(dst, src, idx);
+    Car::Get().AddTask<TaskShuffle>(dst, src, idx);
 }
 
 template<class TKey, class TOff, class ArrayConstructor = vector_constructor_t>
