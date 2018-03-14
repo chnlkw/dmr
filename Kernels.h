@@ -20,10 +20,7 @@ extern void shuffle_by_idx_gpu(T *dst, const T *src, const TOff *idx, size_t siz
 template<class T>
 extern void gpu_add(T *c, const T *a, const T *b, size_t size, cudaStream_t stream); // c[i] = a[i] + b[i]
 
-class TaskAdd2 : public TaskBase, public CPUTask, public GPUTask {
-public:
-    TaskAdd2(const Data<int> &a, const Data<int> &b, Data<int> &c);
-};
+TaskPtr create_taskadd(const Data<int> &a, const Data<int> &b, Data<int> &c);
 
 #else
 

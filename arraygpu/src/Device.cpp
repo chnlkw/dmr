@@ -69,10 +69,14 @@ int DeviceBase::ScoreRunTask(TaskPtr t) {
 
 int CPUDevice::ScoreRunTask(TaskPtr t) {
     CPUTask *c = dynamic_cast<CPUTask *>(t.get());
+    if (!c)
+        c = t->GetCPUTask();
     return c ? c->score : 0;
 }
 
 int GPUDevice::ScoreRunTask(TaskPtr t) {
     GPUTask *c = dynamic_cast<GPUTask *>(t.get());
+    if (!c)
+        c = t->GetGPUTask();
     return c ? c->score : 0;
 }

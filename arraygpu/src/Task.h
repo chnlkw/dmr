@@ -68,6 +68,9 @@ class TaskBase : public std::enable_shared_from_this<TaskBase>, public el::Logga
 
     std::string name_;
 
+    std::unique_ptr<CPUTask> cputask_;
+    std::unique_ptr<GPUTask> gputask_;
+
 public:
     ~TaskBase() override;
 
@@ -109,14 +112,10 @@ public:
         return finished;
     }
 
-protected:
-    TaskBase(Engine &engine, std::string name = "nonamed task") :
-            engine_(engine), name_(name) {
-    }
+public:
+    explicit TaskBase(Engine &engine, std::string name = "nonamed task");
 
-    TaskBase(std::string name = "nonamed task") :
-            engine_(Car::Get()), name_(name) {
-    }
+    TaskBase(std::string name, std::unique_ptr<CPUTask> cputask, std::unique_ptr<GPUTask> gputask);
 
     void AddInput(DataBasePtr data, int priority = 1) {
         metas_.push_back(Meta{data, true, priority});
@@ -140,6 +139,9 @@ protected:
         finished = true;
     }
 
+    CPUTask *GetCPUTask() const { return cputask_.get(); }
+
+    GPUTask *GetGPUTask() const { return gputask_.get(); }
 };
 
 

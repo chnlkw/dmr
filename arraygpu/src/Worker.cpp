@@ -16,6 +16,8 @@ std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
     std::vector<TaskPtr> ret;
     for (TaskPtr t : tasks_) {
         CPUTask *cputask = dynamic_cast<CPUTask *>(t.get());
+        if (!cputask)
+            cputask = t->GetCPUTask();
         CLOG(INFO, "Worker") << *this << " Run Task " << *t;
         if (cputask) {
             t->PrepareData(device_, 0);
@@ -54,6 +56,8 @@ void GPUWorker::RunTask(TaskPtr t) {
     }
 
     GPUTask *gputask = dynamic_cast<GPUTask *>(t.get());
+    if (!gputask)
+        gputask = t->GetGPUTask();
     CLOG(INFO, "Worker") << stream_ << " " << *this << " Run Task " << t->Name() << " gputask_ptr " << gputask;
     if (gputask) {
         for (auto &m : t->GetMetas()) {

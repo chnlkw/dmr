@@ -194,8 +194,7 @@ void test_engine() {
 
     auto d4 = Data<int>(d1.size());
 //    auto t2 = std::make_shared<TaskAdd2<int>>(engine, d2, d3, d4);
-    auto p2 = new TaskAdd2(d2, d3, d4);
-    auto t2 = std::shared_ptr<TaskAdd2>(p2);
+    auto t2 = create_taskadd(d2, d3, d4);
 
 
     engine.AddTask(t2);

@@ -3,6 +3,7 @@
 //
 
 #include <functional>
+#include <utility>
 #include "Task.h"
 #include "Worker.h"
 #include "Data.h"
@@ -21,5 +22,13 @@ void TaskBase::PrepareData(DevicePtr dev, cudaStream_t stream) {
             m.data->WriteAsync(shared_from_this(), dev, stream);
         }
     }
+}
+
+TaskBase::TaskBase(std::string name, std::unique_ptr<CPUTask> cputask, std::unique_ptr<GPUTask> gputask) :
+        engine_(Car::Get()), name_(std::move(name)), cputask_(std::move(cputask)), gputask_(std::move(gputask)) {
+}
+
+TaskBase::TaskBase(Engine &engine, std::string name) :
+        engine_(engine), name_(std::move(name)) {
 }
 
