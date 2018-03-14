@@ -51,25 +51,29 @@ void kernel(F f, Args... args) {
 }
 
 template<class Lambda>
-void launch_gpu(Lambda lambda) {
-    int nblock = 1;
-    int nthread = 1;
-    kernel << < nblock, nthread >> > (lambda);
+void launch_gpu(Lambda lambda, int nblock, int nthread, cudaStream_t stream, int shared_memory = 0) {
+//    int nblock = 1;
+//    int nthread = 1;
+    kernel << < nblock, nthread, shared_memory, stream >> > (lambda);
 
 }
+
+#define FOR(i, N)\
+    for (int i = blockDim.x * blockIdx.x + threadIdx.x; i < N; i += blockDim.x * gridDim.x)
 
 TaskPtr create_taskadd(const Data<int> &a, const Data<int> &b, Data<int> &c) {
     auto gputask = std::make_unique<GPUTask>([&](GPUWorker *gpu) {
         auto l = [=, c = c.data(), b = b.data(), a = a.data(), size = a.size()]
         __device__()
         {
-            int beg = blockDim.x * blockIdx.x + threadIdx.x;
-            int step = blockDim.x * gridDim.x;
-            for (int i = beg; i < size; i += step) {
+//            int beg = blockDim.x * blockIdx.x + threadIdx.x;
+//            int step = blockDim.x * gridDim.x;
+//            for (int i = beg; i < size; i += step) {
+            FOR(i, size) {
                 c[i] = a[i] + b[i];
             }
         };
-        launch_gpu(l);
+        launch_gpu(l, 1, 1, gpu->Stream());
     }, 2);
     auto cputask = std::make_unique<CPUTask>([&](CPUWorker *cpu) {
         for (int i = 0; i < c.size(); i++) {

@@ -24,16 +24,17 @@ add_subdirectory(arraygpu)
 add_executable(main main.cpp)
 target_link_libraries(main engine)
 
-#if (CUDA_FOUND)
-#    MESSAGE("build dmr_kernel library PUBLIC ${CUDA_INCLUDE_DIRS}")
-#    include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(arraygpu/src)
 include_directories(arraygpu/logging)
 include_directories(arraygpu/cuda)
 #include_directories(arraygpu/include)
 cuda_add_library(dmr_kernel Kernels.cu)
-target_link_libraries(dmr_kernel engine)
-target_link_libraries(main dmr_kernel)
-#endif ()
 
+add_library(dmr dmr.cpp)
+target_link_libraries(dmr dmr_kernel engine)
+target_include_directories(dmr
+        PUBLIC .
+)
+
+target_link_libraries(main dmr_kernel)
 configure_file(arraygpu/logging/logging.conf logging.conf)
