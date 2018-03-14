@@ -9,9 +9,14 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <Data.h>
 
 #include "array_constructor.h"
-#include "All.h"
+//#include "All.h"
+#include "AllocatorBase.h"
+#include "Task.h"
+#include "Worker.h"
+#include "Car.h"
 
 #define LG(x) CLOG(x, "DMR")
 
@@ -39,8 +44,8 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
         Data<T> dst_, src_;
         Data<TOff> idx_;
 
-        TaskShuffle(Engine &engine, Data<T> dst, Data<T> src, Data<TOff> idx) :
-                TaskBase(engine, "Shuffle"),
+        TaskShuffle(Data<T> dst, Data<T> src, Data<TOff> idx) :
+                TaskBase("Shuffle"),
                 dst_(dst), src_(src), idx_(idx) {
 //            LG(INFO) << dst.size() << " ?= " << src.size() << " ?= " << idx.size();
             assert(dst.size() == src.size());
@@ -66,7 +71,7 @@ void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
             shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), src_.size(), gpu->Stream());
         }
     };
-    Car::Get().AddTask<TaskShuffle>(dst, src, idx);
+    Car::AddTask<TaskShuffle>(dst, src, idx);
 }
 
 template<class TKey, class TOff, class ArrayConstructor = vector_constructor_t>

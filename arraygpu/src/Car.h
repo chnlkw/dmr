@@ -19,6 +19,16 @@ public:
     static DevicePtr GetCPUDevice();
 
     static void Finish() { engine.reset(); }
+
+    template<class Task, class... Args>
+    static
+    TaskBase &AddTask(Args &&... args) {
+        auto t = std::make_shared<Task>(std::forward<Args>(args)...);
+        return AddTask(t);
+    }
+
+    static
+    TaskBase &AddTask(TaskPtr task);
 };
 
 

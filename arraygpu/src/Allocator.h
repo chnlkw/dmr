@@ -13,22 +13,10 @@
 #include <functional>
 
 #include "defs.h"
-#include <boost/di.hpp>
+#include "AllocatorBase.h"
 #include "cuda_utils.h"
+#include <boost/di.hpp>
 
-class AllocatorBase {
-
-public:
-    AllocatorBase() {}
-
-    virtual ~AllocatorBase() {}
-
-    virtual void *Alloc(size_t size) = 0;
-
-    virtual void Free(void *ptr) = 0;
-
-    virtual int Id() const { return -1; }
-};
 
 class CPUAllocator : public AllocatorBase {
 public:

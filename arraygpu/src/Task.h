@@ -113,7 +113,7 @@ public:
     }
 
 public:
-    explicit TaskBase(Engine &engine, std::string name = "nonamed task");
+    explicit TaskBase(std::string name = "nonamed task");
 
     TaskBase(std::string name, std::unique_ptr<CPUTask> cputask, std::unique_ptr<GPUTask> gputask);
 

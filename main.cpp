@@ -6,7 +6,7 @@
 #include <set>
 #include <clock.h>
 
-//#include <All.h>
+#include <All.h>
 //#include "dmr.h"
 #include "Car.h"
 #include "PartitionedDMR.h"
@@ -138,8 +138,8 @@ template<class T>
 class TaskAdd : public TaskBase {
     Data<T> a_, b_, c_;
 public:
-    TaskAdd(Engine &engine, Data<T> a, Data<T> b, Data<T> c) :
-            TaskBase(engine, "Add"),
+    TaskAdd(Data<T> a, Data<T> b, Data<T> c) :
+            TaskBase("Add"),
             a_(a), b_(b), c_(c) {
         assert(a.size() == b.size());
         assert(a.size() == c.size());
