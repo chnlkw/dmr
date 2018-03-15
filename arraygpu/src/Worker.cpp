@@ -21,7 +21,6 @@ std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
         CLOG(INFO, "Worker") << *this << " Run Task " << *t;
         if (cputask) {
             t->PrepareData(device_, 0);
-            CUDA_CHECK();
             (*cputask)(this);
         } else
             t->Run(this);
