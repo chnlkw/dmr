@@ -21,6 +21,8 @@ std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
         CLOG(INFO, "Worker") << *this << " Run Task " << *t;
         if (cputask) {
             t->PrepareData(device_, 0);
+            CUDA_CALL(cudaStreamSynchronize, 0);
+
             (*cputask)(this);
         } else
             t->Run(this);
