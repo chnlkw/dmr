@@ -271,6 +271,7 @@ int main(int argc, char **argv) {
     auto injector = di::make_injector(
             di::bind<CudaAllocator>().to<CudaPreAllocator>(),
             di::bind<MyDeviceGroup>().to(CPUGPUGroupFactory(1, num_gpu)),
+//            di::bind<MyDeviceGroup>().to(CPUGroupFactory(2)),
             di::bind<int>().named(NumWorkersOfGPUDevices).to(num_gpu),
             di::bind<size_t>().named(PreAllocBytes).to(2LU << 30)
     );

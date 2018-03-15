@@ -61,8 +61,9 @@ struct CPUGroupFactory {
     auto operator()(const TInjector &injector, const TDependency &) const {
         auto g = std::make_unique<MyDeviceGroup>();
         for (size_t i = 0; i < num_cpus; i++) {
-            LOG(INFO) << "MyDeviceGroup creating CPUDevice " << i;
+            CLOG(INFO, "Device") << "MyDeviceGroup creating CPUDevice " << i;
             g->push_back(injector.template create<std::shared_ptr<CPUDevice>>());
+            CLOG(INFO, "Device") << "MyDeviceGroup creating CPUDevice " << i << " OK";
         }
         return std::move(g);
     }
@@ -78,14 +79,14 @@ struct GPUGroupFactory {
     auto operator()(const TInjector &injector, const TDependency &) const {
         TInjector &injector_(const_cast<TInjector &>(injector));
         auto inj = boost::di::make_injector(std::move(injector_),
-                                     boost::di::bind<int>().named(myDeviceId).to([]() {
-                                         static int seq = 0;
-                                         return seq++;
-                                     })
+                                            boost::di::bind<int>().named(myDeviceId).to([]() {
+                                                static int seq = 0;
+                                                return seq++;
+                                            })
         );
         auto g = std::make_unique<MyDeviceGroup>();
         for (size_t i = 0; i < num_gpus; i++) {
-            LOG(INFO) << "MyDeviceGroup creating i = " << i;
+            CLOG(INFO, "Device") << "MyDeviceGroup creating i = " << i;
             g->emplace_back(inj.template create<GPUDevice *>()); //singleton
         }
         return std::move(g);
@@ -104,19 +105,21 @@ struct CPUGPUGroupFactory {
     template<class TInjector, class TDependency>
     auto operator()(const TInjector &injector, const TDependency &) const {
         TInjector &injector_(const_cast<TInjector &>(injector));
-        auto inj = boost::di::make_injector(std::move(injector_),
-                                     boost::di::bind<int>().named(myDeviceId).to([]() {
-                                         static int seq = 0;
-                                         return seq++;
-                                     })
-        );
         auto g = std::make_unique<MyDeviceGroup>();
+
         for (size_t i = 0; i < num_cpus; i++) {
-            LOG(INFO) << "MyDeviceGroup creating CPU device " << i;
-            g->emplace_back(inj.template create<CPUDevice *>()); //singleton
+            CLOG(INFO, "Device") << "MyDeviceGroup creating CPU device " << i;
+            g->emplace_back(injector_.template create<std::shared_ptr<CPUDevice>>()); // sharing
+            CLOG(INFO, "Device") << "MyDeviceGroup creating CPU device " << i << " OK";
         }
+        auto inj = boost::di::make_injector(std::move(injector_),
+                                            boost::di::bind<int>().named(myDeviceId).to([]() {
+                                                static int seq = 0;
+                                                return seq++;
+                                            })
+        );
         for (size_t i = 0; i < num_gpus; i++) {
-            LOG(INFO) << "MyDeviceGroup creating GPU device " << i;
+            CLOG(INFO, "Device") << "MyDeviceGroup creating GPU device " << i;
             g->emplace_back(inj.template create<GPUDevice *>()); //singleton
         }
         return std::move(g);
