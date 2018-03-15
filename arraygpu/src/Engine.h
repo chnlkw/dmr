@@ -51,7 +51,6 @@ public:
         return num_running_tasks_;
     }
 
-
     const DevicePtr CpuDevice() const;
 
     const std::vector<std::shared_ptr<DeviceBase>> &GetDevices() const;

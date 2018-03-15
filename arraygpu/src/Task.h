@@ -23,7 +23,7 @@
 struct GPUTask : public std::function<void(GPUWorker *)> {
     int score;
 
-    explicit GPUTask(std::function<void(GPUWorker *)> f, int score = 1) :
+    explicit GPUTask(std::function<void(GPUWorker *)> f, int score = 2) :
             std::function<void(GPUWorker *)>(f),
             score(score) {
     }
@@ -98,9 +98,9 @@ public:
 //        return *this;
 //    }
 
-    virtual void Run(CPUWorker *) { throw std::runtime_error("not implemented on CPUWorker"); };
+    virtual void Run(CPUWorker *) { LOG(FATAL) << "not implemented in CPUWorker : " << *this;};
 
-    virtual void Run(GPUWorker *) { throw std::runtime_error("not implemented on GPUWorker"); };
+    virtual void Run(GPUWorker *) { LOG(FATAL) << "not implemented in GPUWorker : " << *this;};
 
     void WaitFinish();
 

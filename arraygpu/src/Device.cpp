@@ -24,8 +24,7 @@
 
 GPUDevice::GPUDevice(std::unique_ptr<CudaAllocator> allocator, int num_workers) :
         DeviceBase(std::move(allocator)) {
-    LG(INFO) << "Create GPUDevice with allocator " << GetAllocator() << " num_workers = " << num_workers << " ID = "
-             << this->Id();
+    LG(INFO) << "Create GPUDevice " << this << " with allocator " << GetAllocator() << " num_workers = " << num_workers << " ID = " << this->Id();
     for (int i = 0; i < num_workers; i++) {
         workers_.emplace_back(new GPUWorker(this));
     }
@@ -56,6 +55,7 @@ int DeviceBase::Id() const { return allocator_->Id(); }
 CPUDevice::CPUDevice() :
         DeviceBase(std::make_unique<CudaPreAllocator>(-1, 8LU << 30)) {
     workers_.emplace_back(new CPUWorker(this));
+    LG(INFO) << "Create CPUDevice " << this << " with allocator " << GetAllocator() << " num_workers = " << workers_.size() << " ID = " << this->Id();
 }
 
 void CPUDevice::RunTask(TaskPtr t) {

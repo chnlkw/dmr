@@ -15,6 +15,7 @@ TaskBase::~TaskBase() {
 }
 
 void TaskBase::PrepareData(DevicePtr dev, cudaStream_t stream) {
+    LG(INFO) << " PrepareData for " << *this;
     for (auto &m : GetMetas()) {
         if (m.is_read_only) {
             m.data->ReadAsync(shared_from_this(), dev, stream);

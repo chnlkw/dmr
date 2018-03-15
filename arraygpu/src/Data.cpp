@@ -19,7 +19,8 @@ ArrayBasePtr DataBase::State::ReadAt(const DevicePtr &dev, cudaStream_t stream) 
         } else {
             arr = std::make_shared<ArrayBase>(dev->GetAllocator(), dev, bytes);
         }
-        arr->CopyFromAsync(*from, stream);
+        assert(from->GetBytes() >= bytes);
+        arr->CopyFromAsync(*from, stream, false);
         replicas[dev] = arr;
     }
     if (replicas[dev]->GetBytes() > bytes)

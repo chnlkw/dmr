@@ -21,13 +21,7 @@ std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
         CLOG(INFO, "Worker") << *this << " Run Task " << *t;
         if (cputask) {
             t->PrepareData(device_, 0);
-            for (auto &m : t->GetMetas()) {
-                if (m.is_read_only) {
-                    m.data->ReadAsync(t, device_, 0);
-                } else {
-                    m.data->WriteAsync(t, device_, 0);
-                }
-            }
+            CUDA_CHECK();
             (*cputask)(this);
         } else
             t->Run(this);
@@ -45,17 +39,18 @@ GPUWorker::GPUWorker(GPUDevice *gpu) :
 }
 
 void GPUWorker::RunTask(TaskPtr t) {
-    GPUDevice &gpu = *static_cast<GPUDevice *>(device_);
-    CUDA_CALL(cudaSetDevice, gpu.Id());
+    auto gpu = dynamic_cast<GPUDevice *>(device_);
+    assert(gpu);
+    CUDA_CALL(cudaSetDevice, gpu->Id());
     cudaEvent_t e;
-    if (events_unused_.size() > 0) {
+    if (!events_unused_.empty()) {
         e = events_unused_.back();
         events_unused_.pop_back();
     } else {
         CUDA_CALL(cudaEventCreate, &e);
     }
 
-    GPUTask *gputask = dynamic_cast<GPUTask *>(t.get());
+    auto gputask = dynamic_cast<GPUTask *>(t.get());
     if (!gputask)
         gputask = t->GetGPUTask();
     CLOG(INFO, "Worker") << stream_ << " " << *this << " Run Task " << t->Name() << " gputask_ptr " << gputask;
