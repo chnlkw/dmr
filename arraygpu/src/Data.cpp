@@ -145,10 +145,10 @@ std::vector<DevicePtr> DataBase::DevicesPrefered() const {
 void DataBase::ResizeBytes(size_t bytes) {
     Wait();
     if (last_state_.bytes > 0 && bytes > last_state_.bytes) {
-        LG(FATAL) << "Data increasing size not supported yet";
+        LOG(FATAL) << "Data increasing size not supported yet";
     }
-    if (last_state_.bytes == 0 && last_state_.replicas.size() > 0) {
-        LG(FATAL) << "Data size is 0, but has replicas";
+    if (last_state_.bytes == 0 && !last_state_.replicas.empty()) {
+        LOG(FATAL) << "Data size is 0, but has replicas";
     }
     LG(INFO) << "resize " << last_state_.bytes << " to " << bytes;
     last_state_.bytes = bytes;
