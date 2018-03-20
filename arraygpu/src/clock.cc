@@ -1,5 +1,6 @@
 #include "clock.h"
 
+namespace dmr {
 //  Windows
 #ifdef _WIN32
 #include <Windows.h>
@@ -31,53 +32,57 @@ double get_cpu_time(){
 
 //  Posix/Linux
 #else
+
 #include <sys/time.h>
 #include <time.h>
-double get_wall_time(){
+
+double get_wall_time() {
     struct timeval time;
-    if (gettimeofday(&time,NULL)){
+    if (gettimeofday(&time, NULL)) {
         //  Handle error
         return 0;
     }
-    return (double)time.tv_sec + (double)time.tv_usec * .000001;
+    return (double) time.tv_sec + (double) time.tv_usec * .000001;
 }
-double get_cpu_time(){
-    return (double)clock() / CLOCKS_PER_SEC;
+
+double get_cpu_time() {
+    return (double) clock() / CLOCKS_PER_SEC;
 }
+
 #endif
 
-void Clock::start()
-{
-	_last = get_wall_time();
-	_elapsed = 0;
-	_started = true;
+void Clock::start() {
+    _last = get_wall_time();
+    _elapsed = 0;
+    _started = true;
 }
 
-double Clock::restart()
-{
-	double ret = timeElapsed();
-	start();
-	return ret;
+double Clock::restart() {
+    double ret = timeElapsed();
+    start();
+    return ret;
 }
 
 double Clock::timeElapsed() {
-	if (_started)
-		return _elapsed + get_wall_time() - _last;
-	else
-		return _elapsed;
+    if (_started)
+        return _elapsed + get_wall_time() - _last;
+    else
+        return _elapsed;
 
 }
 
 void Clock::pause() {
-	_elapsed += get_wall_time() - _last;
-	_started = false;
+    _elapsed += get_wall_time() - _last;
+    _started = false;
 }
 
 void Clock::resume() {
-	_last = get_wall_time();
-	_started = true;
+    _last = get_wall_time();
+    _started = true;
 }
 
-Clock::Clock() :_elapsed(0), _last(0), _started(false){
-	start();
+Clock::Clock() : _elapsed(0), _last(0), _started(false) {
+    start();
+}
+
 }

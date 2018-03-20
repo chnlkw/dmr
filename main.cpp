@@ -13,6 +13,7 @@
 #include "easylogging++.h"
 #include <boost/di.hpp>
 
+using namespace dmr;
 namespace di = boost::di;
 
 auto print = [](auto &x) { std::cout << " " << x; };

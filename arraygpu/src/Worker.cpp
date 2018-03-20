@@ -7,8 +7,11 @@
 #include "Task.h"
 #include "Data.h"
 #include "Engine.h"
+#include "clock.h"
 
 #define LG(x) CLOG(x, "Worker")
+
+using namespace dmr;
 
 CPUWorker::CPUWorker(CPUDevice *cpu) : WorkerBase(cpu) {}
 
@@ -18,7 +21,8 @@ std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
         CPUTask *cputask = dynamic_cast<CPUTask *>(t.get());
         if (!cputask)
             cputask = t->GetCPUTask();
-        CLOG(INFO, "Worker") << *this << " Run Task " << *t;
+        CLOG(INFO, "Worker") << *this << " Run " << *t;
+        Clock clk;
         if (cputask) {
             t->PrepareData(device_, 0);
             CUDA_CALL(cudaStreamSynchronize, 0);
@@ -26,6 +30,7 @@ std::vector<TaskPtr> CPUWorker::GetCompleteTasks() {
             (*cputask)(this);
         } else
             t->Run(this);
+        CLOG(INFO, "Worker") << *this << " " << *t << " uses " << clk.timeElapsed() << " seconds";
         ret.push_back(t);
     }
     tasks_.clear();
@@ -43,18 +48,14 @@ void GPUWorker::RunTask(TaskPtr t) {
     auto gpu = dynamic_cast<GPUDevice *>(device_);
     assert(gpu);
     CUDA_CALL(cudaSetDevice, gpu->Id());
-    cudaEvent_t e;
-    if (!events_unused_.empty()) {
-        e = events_unused_.back();
-        events_unused_.pop_back();
-    } else {
-        CUDA_CALL(cudaEventCreate, &e);
-    }
+
+    Meta meta{GetEvent(), GetEvent(), t};
+    CUDA_CALL(cudaEventRecord, meta.beg_event, stream_);
 
     auto gputask = dynamic_cast<GPUTask *>(t.get());
     if (!gputask)
         gputask = t->GetGPUTask();
-    CLOG(INFO, "Worker") << stream_ << " " << *this << " Run Task " << t->Name() << " gputask_ptr " << gputask;
+    CLOG(INFO, "Worker") << *this << " Run " << *t;
     if (gputask) {
         for (auto &m : t->GetMetas()) {
             if (m.is_read_only) {
@@ -66,6 +67,48 @@ void GPUWorker::RunTask(TaskPtr t) {
         (*gputask)(this);
     } else
         t->Run(this);
-    CUDA_CALL(cudaEventRecord, e, stream_);
-    queue_.emplace_back(e, t);
+    CUDA_CALL(cudaEventRecord, meta.end_event, stream_);
+    queue_.push_back(meta);
+}
+
+std::vector<TaskPtr> GPUWorker::GetCompleteTasks() {
+#ifdef USE_CUDA
+    std::vector<TaskPtr> ret;
+    if (Empty())
+        return ret;
+
+    while (true) {
+        Meta meta = queue_.front();
+        cudaError_t err = cudaEventQuery(meta.end_event);
+        if (err == cudaSuccess) {
+            queue_.pop_front();
+            float milliseconds = 0;
+            CUDA_CALL(cudaEventElapsedTime, &milliseconds, meta.beg_event, meta.end_event);
+            CLOG(INFO, "Worker") << *this << " " << *meta.task << " uses " << milliseconds / 1e3 << " seconds";
+
+            ret.push_back(meta.task);
+            events_unused_.push_back(meta.end_event);
+            events_unused_.push_back(meta.beg_event);
+            break;
+        } else if (err == cudaErrorNotReady) {
+            continue;
+        } else {
+            CUDA_CHECK();
+        }
+    }
+    return ret;
+#else
+    return {};
+#endif
+}
+
+cudaEvent_t GPUWorker::GetEvent() {
+    cudaEvent_t e;
+    if (!events_unused_.empty()) {
+        e = events_unused_.back();
+        events_unused_.pop_back();
+    } else {
+        CUDA_CALL(cudaEventCreate, &e);
+    }
+    return e;
 }

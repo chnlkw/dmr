@@ -7,12 +7,12 @@
 #include "Task.h"
 
 void TaskBase::log(el::base::type::ostream_t &os) const {
-    os << "[Task]" << Name();
+    os << "Task[" << Name() << "]";
     if (finished) os << " Finished";
 }
 
 void WorkerBase::log(el::base::type::ostream_t &os) const {
-    os << "Worker["<< id_ << ", device=" << *device_ << "]";
+    os << "Worker["<< id_ << ", " << *device_ << "]";
 }
 
 void DeviceBase::log(el::base::type::ostream_t &os) const {

@@ -48,7 +48,12 @@ class GPUWorker : public WorkerBase {
     cudaStream_t stream_;
 
     std::vector<cudaEvent_t> events_unused_;
-    std::deque<std::pair<cudaEvent_t, TaskPtr>> queue_;
+
+    struct Meta {
+        cudaEvent_t beg_event, end_event;
+        TaskPtr task;
+    };
+    std::deque<Meta> queue_;
 
 public:
     explicit GPUWorker(GPUDevice *gpu);
@@ -57,7 +62,7 @@ public:
         return queue_.empty();
     }
 
-    const cudaStream_t& Stream() const {
+    const cudaStream_t &Stream() const {
         return stream_;
     }
 
@@ -69,33 +74,9 @@ private:
         return queue_.size();
     }
 
-    std::vector<TaskPtr> GetCompleteTasks() override {
-#ifdef USE_CUDA
-        std::vector<TaskPtr> ret;
-        if (Empty())
-            return ret;
+    cudaEvent_t GetEvent();
 
-        while (true) {
-            TaskPtr t;
-            cudaEvent_t e;
-            std::tie(e, t) = queue_.front();
-            cudaError_t err = cudaEventQuery(e);
-            if (err == cudaSuccess) {
-                queue_.pop_front();
-                events_unused_.push_back(e);
-                ret.push_back(t);
-                break;
-            } else if (err == cudaErrorNotReady) {
-                continue;
-            } else {
-                CUDA_CHECK();
-            }
-        }
-        return ret;
-#else
-        return {};
-#endif
-    }
+    std::vector<TaskPtr> GetCompleteTasks() override;
 
 };
 
