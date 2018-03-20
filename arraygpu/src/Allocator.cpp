@@ -8,6 +8,17 @@
 
 #ifdef USE_CUDA
 
+std::string bytes_to_str(size_t bytes) {
+    double b = bytes;
+    std::vector<std::string> suffix = {"B", "KB", "MB", "GB", "TB"};
+    for (auto s : suffix) {
+        if (b < 1024)
+            return std::to_string(b) + " " + s;
+        b /= 1024;
+    }
+    return std::to_string(bytes);
+}
+
 int UnifiedAllocator::GetDevice() {
     return device_;
 }
@@ -36,7 +47,8 @@ CudaPreAllocator::CudaPreAllocator(int device, size_t pre_alloc_bytes) :
         size_(pre_alloc_bytes),
         allocated_(0),
         align_(4096) {
-    LG(INFO) << "CudaPreAllocator with device = " << device << "  pre_alloc_bytes = " << pre_alloc_bytes << " align = " << align_;
+    LG(INFO) << "CudaPreAllocator with device = " << device << "  pre_alloc_bytes = " << bytes_to_str(pre_alloc_bytes)
+             << " align = " << align_;
     assert(align_ > 0);
     if (device_ < 0) {
         CUDA_CALL(cudaMallocHost, &ptr_, size_);
@@ -76,14 +88,17 @@ void *CudaPreAllocator::Alloc(size_t size) {
     }
     if (off + size > size_) {
         std::ostringstream os;
-        os << "CudaPreAllocator :: not enough memory when allocating " << size << " remain " << size_ - allocated_;
-        LG(FATAL) << os.str();
+        os << "CudaPreAllocator :: not enough memory when allocating " << bytes_to_str(size) << " remain "
+           << bytes_to_str(size_ - allocated_);
+        LG(FATAL) << os.str() << "\n" << el::base::debug::StackTrace();
         throw std::runtime_error(os.str().c_str());
     }
     m_.emplace(off, size);
     allocated_ += size;
-    LG(DEBUG) << "CudaPreAllocator: " << Id() << " Alloc=" << size << " ptr_ = " << ptr_ << " off = " << off;
-    LG(INFO) << "CudaPreAllocator: " << Id() << " Alloc=" << size << " allocated=" << allocated_ << " remain=" << size_ - allocated_;
+    LG(DEBUG) << "CudaPreAllocator: " << Id() << " Alloc=" << bytes_to_str(size) << " ptr_ = " << ptr_ << " off = "
+              << off;
+    LG(INFO) << "CudaPreAllocator: " << Id() << " Alloc=" << bytes_to_str(size) << " allocated="
+             << bytes_to_str(allocated_) << " remain=" << bytes_to_str(size_ - allocated_);
     return (char *) ptr_ + off;
 }
 
@@ -97,7 +112,8 @@ void CudaPreAllocator::Free(void *ptr) {
         throw std::runtime_error(os.str().c_str());
     }
     allocated_ -= it->second;
-    LG(INFO) << "CurePreAllocator: " << Id() << " Free=" << it->second << " allocated=" << allocated_ << " remain=" << size_ - allocated_;
+    LG(INFO) << "CurePreAllocator: " << Id() << " Free=" << it->second << " allocated=" << bytes_to_str(allocated_)
+             << " remain=" << bytes_to_str(size_ - allocated_);
     m_.erase(it);
 }
 

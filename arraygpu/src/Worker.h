@@ -57,7 +57,7 @@ public:
         return queue_.empty();
     }
 
-    cudaStream_t Stream() const {
+    const cudaStream_t& Stream() const {
         return stream_;
     }
 

@@ -34,46 +34,6 @@ void ShuffleByIdx(std::vector<T>& p_dst, const std::vector<T> &p_src, const std:
     }
 }
 
-template<class T, class TOff>
-void ShuffleByIdx(Data<T> dst, Data<T> src, Data<TOff> idx) {
-//    LG(INFO) << dst.size() << " ?= " << src.size() << " ?= " << idx.size();
-    assert(dst.size() == src.size());
-    assert(dst.size() == idx.size());
-
-    struct TaskShuffle : TaskBase {
-        Data<T> dst_, src_;
-        Data<TOff> idx_;
-
-        TaskShuffle(Data<T> dst, Data<T> src, Data<TOff> idx) :
-                TaskBase("Shuffle"),
-                dst_(dst), src_(src), idx_(idx) {
-//            LG(INFO) << dst.size() << " ?= " << src.size() << " ?= " << idx.size();
-            assert(dst.size() == src.size());
-            assert(dst.size() == idx.size());
-            AddInput(src);
-            AddInput(idx);
-            AddOutput(dst);
-        }
-
-        virtual void Run(CPUWorker *cpu) override {
-            auto &dst = dst_.WriteAsync(shared_from_this(), cpu->Device(), 0);
-            auto &src = src_.ReadAsync(shared_from_this(), cpu->Device(), 0);
-            auto &idx = idx_.ReadAsync(shared_from_this(), cpu->Device(), 0);
-            for (int i = 0; i < dst_.size(); i++) {
-                dst[i] = src[idx[i]];
-            }
-        }
-
-        virtual void Run(GPUWorker *gpu) override {
-            auto &src = src_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
-            auto &idx = idx_.ReadAsync(shared_from_this(), gpu->Device(), gpu->Stream());
-            auto &dst = dst_.WriteAsync(shared_from_this(), gpu->Device(), gpu->Stream());
-            shuffle_by_idx_gpu(dst.data(), src.data(), idx.data(), src_.size(), gpu->Stream());
-        }
-    };
-    Car::AddTask<TaskShuffle>(dst, src, idx);
-}
-
 template<class TKey, class TOff, class ArrayConstructor = vector_constructor_t>
 class DMR {
     template<class T>
