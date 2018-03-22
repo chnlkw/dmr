@@ -49,7 +49,7 @@ void GPUWorker::RunTask(TaskPtr t) {
     assert(gpu);
     CUDA_CALL(cudaSetDevice, gpu->Id());
 
-    Meta meta{GetEvent(), GetEvent(), t};
+    Meta meta{GetEvent(), GetEvent(), GetEvent(), t};
     CUDA_CALL(cudaEventRecord, meta.beg_event, stream_);
 
     auto gputask = dynamic_cast<GPUTask *>(t.get());
@@ -64,9 +64,12 @@ void GPUWorker::RunTask(TaskPtr t) {
                 m.data->WriteAsync(t, device_, stream_);
             }
         }
+        CUDA_CALL(cudaEventRecord, meta.transfer_event, stream_);
         (*gputask)(this);
-    } else
+    } else {
+        CUDA_CALL(cudaEventRecord, meta.transfer_event, stream_);
         t->Run(this);
+    }
     CUDA_CALL(cudaEventRecord, meta.end_event, stream_);
     queue_.push_back(meta);
 }
@@ -82,13 +85,16 @@ std::vector<TaskPtr> GPUWorker::GetCompleteTasks() {
         cudaError_t err = cudaEventQuery(meta.end_event);
         if (err == cudaSuccess) {
             queue_.pop_front();
-            float milliseconds = 0;
-            CUDA_CALL(cudaEventElapsedTime, &milliseconds, meta.beg_event, meta.end_event);
-            CLOG(INFO, "Worker") << *this << " " << *meta.task << " uses " << milliseconds / 1e3 << " seconds";
+            float tranfer_ms, calc_ms;
+            CUDA_CALL(cudaEventElapsedTime, &tranfer_ms, meta.beg_event, meta.transfer_event);
+            CUDA_CALL(cudaEventElapsedTime, &calc_ms, meta.transfer_event, meta.end_event);
+            CLOG(INFO, "Worker") << *this << " " << *meta.task << " transfer " << tranfer_ms << " ms, " << " calc "
+                                 << calc_ms << " ms";
 
             ret.push_back(meta.task);
             events_unused_.push_back(meta.end_event);
             events_unused_.push_back(meta.beg_event);
+            events_unused_.push_back(meta.transfer_event);
             break;
         } else if (err == cudaErrorNotReady) {
             continue;

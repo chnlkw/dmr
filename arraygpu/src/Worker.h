@@ -50,7 +50,7 @@ class GPUWorker : public WorkerBase {
     std::vector<cudaEvent_t> events_unused_;
 
     struct Meta {
-        cudaEvent_t beg_event, end_event;
+        cudaEvent_t beg_event, transfer_event, end_event;
         TaskPtr task;
     };
     std::deque<Meta> queue_;
